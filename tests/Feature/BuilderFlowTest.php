@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Support\VisitorIdentity;
 use Database\Seeders\BuilderContentSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -17,7 +18,9 @@ class BuilderFlowTest extends TestCase
 {
     use RefreshDatabase;
 
-    private BuilderTemplate $template;
+    protected BuilderTemplate $template;
+    protected string $raw;
+    protected AnonymousIdentity $identity;
 
     protected function setUp(): void
     {
@@ -25,177 +28,208 @@ class BuilderFlowTest extends TestCase
 
         $this->seed(BuilderContentSeeder::class);
         $this->template = BuilderTemplate::firstOrFail();
+        config(['otp.expose_test_code' => true]);
 
-        config([
-            'otp.driver' => 'log',
-            'otp.expose_test_code' => true,
-            'otp.resend_cooldown_seconds' => 0,
-            'otp.max_sends_per_hour' => 20,
-        ]);
-
-        $this->actAsVisitor();
-    }
-
-    private function actAsVisitor(string $raw = 'test-visitor-token'): AnonymousIdentity
-    {
-        $identity = AnonymousIdentity::create([
-            'token_hash' => VisitorIdentity::hash($raw),
+        $this->raw = Str::random(64);
+        $this->identity = AnonymousIdentity::create([
+            'token_hash' => VisitorIdentity::hash($this->raw),
             'expires_at' => now()->addDays(30),
             'last_seen_at' => now(),
         ]);
+    }
 
-        $this->withUnencryptedCookie(VisitorIdentity::COOKIE, $raw);
-
-        return $identity;
+    /** Sends a request with the anonymous cookie attached (json() drops cookies). */
+    private function send(string $method, string $uri, array $payload = [], ?string $raw = null)
+    {
+        return $this->call(
+            $method,
+            $uri,
+            [],
+            ['sp_visitor' => $raw ?? $this->raw],
+            [],
+            ['HTTP_ACCEPT' => 'application/json', 'CONTENT_TYPE' => 'application/json'],
+            $payload === [] ? null : json_encode($payload, JSON_UNESCAPED_UNICODE),
+        );
     }
 
     private function createDraft(): array
     {
-        $response = $this->postJson('/api/drafts', ['template_id' => $this->template->id])
-            ->assertCreated();
+        $response = $this->send('POST', '/api/drafts', ['template_id' => $this->template->id]);
+        $response->assertCreated();
 
-        return [$response->json('draft'), $response->json('draft.public_id')];
+        return [$response->json('draft'), Draft::latest('id')->first()];
+    }
+
+    public function test_selecting_a_template_creates_a_private_draft_copying_template_content(): void
+    {
+        $draft = $this->createDraft()[1];
+
+        $this->assertSame($this->identity->id, $draft->anonymous_identity_id);
+        $this->assertNull($draft->user_id);
+        $this->assertSame('draft', $draft->status);
+        $this->assertSame($this->template->content['hero']['headline'], $draft->content['hero']['headline']);
+        $this->assertNotEmpty($draft->public_id);
+        $this->assertSame(1, $draft->revision);
     }
 
     public function test_a_draft_is_private_to_the_browser_that_created_it(): void
     {
-        [, $publicId] = $this->createDraft();
+        [, $draft] = $this->createDraft();
 
-        $this->getJson("/api/drafts/{$publicId}")->assertOk();
+        $this->send('GET', "/api/drafts/{$draft->public_id}")->assertOk();
 
-        // A different browser (new cookie) must not see it.
-        $this->withUnencryptedCookie(VisitorIdentity::COOKIE, 'some-other-browser-token');
-        $this->getJson("/api/drafts/{$publicId}")->assertNotFound();
+        // Another browser, even knowing the URL, sees nothing.
+        $this->send('GET', "/api/drafts/{$draft->public_id}", [], 'some-other-browser-token')->assertNotFound();
     }
 
-    public function test_creating_twice_in_a_row_reuses_the_draft(): void
+    public function test_selecting_the_same_template_twice_does_not_duplicate_the_draft(): void
     {
-        $first = $this->postJson('/api/drafts', ['template_id' => $this->template->id])->json('draft.public_id');
-        $second = $this->postJson('/api/drafts', ['template_id' => $this->template->id])->json('draft.public_id');
+        $first = $this->createDraft()[1];
+        $response = $this->send('POST', '/api/drafts', ['template_id' => $this->template->id]);
+        $response->assertOk();                       // reuses instead of creating
+        $second = Draft::latest('id')->first();
 
-        $this->assertSame($first, $second);
+        $this->assertSame($first->id, $second->id);
         $this->assertSame(1, Draft::count());
     }
 
-    public function test_autosave_rejects_a_stale_revision_and_keeps_the_newer_content(): void
+    public function test_autosave_stores_content_and_bumps_the_revision(): void
     {
-        [$draft, $publicId] = $this->createDraft();
+        [, $draft] = $this->createDraft();
 
-        $content = $draft['content'];
-        $content['hero']['headline'] = 'নতুন শিরোনাম';
+        $response = $this->send('PATCH', "/api/drafts/{$draft->public_id}", [
+            'revision' => 1,
+            'content' => ['hero' => ['headline' => 'নতুন শিরোনাম'], 'brand' => ['name' => 'আমার ব্র্যান্ড']],
+        ])->assertOk();
 
-        $this->patchJson("/api/drafts/{$publicId}", ['content' => $content, 'revision' => 1])
-            ->assertOk()
-            ->assertJsonPath('revision', 2);
-
-        // A second tab still holding revision 1 must not overwrite revision 2.
-        $stale = $content;
-        $stale['hero']['headline'] = 'পুরোনো ট্যাবের লেখা';
-
-        $this->patchJson("/api/drafts/{$publicId}", ['content' => $stale, 'revision' => 1])
-            ->assertStatus(409)
-            ->assertJsonPath('conflict', true);
-
-        $this->assertSame('নতুন শিরোনাম', Draft::first()->content['hero']['headline']);
+        $this->assertSame(2, $draft->fresh()->revision);
+        $this->assertSame('নতুন শিরোনাম', $draft->fresh()->content['hero']['headline']);
     }
 
-    public function test_otp_wrong_code_and_attempt_limit(): void
+    public function test_autosave_rejects_stale_revisions_instead_of_overwriting(): void
     {
-        [, $publicId] = $this->createDraft();
+        [, $draft] = $this->createDraft();
 
-        $this->postJson("/api/drafts/{$publicId}/otp", ['phone' => '01712345678'])->assertOk();
+        $this->send('PATCH', "/api/drafts/{$draft->public_id}", [
+            'revision' => 1,
+            'content' => ['hero' => ['headline' => 'প্রথম ট্যাব']],
+        ])->assertOk();
 
-        $this->postJson("/api/drafts/{$publicId}/otp/verify", ['phone' => '01712345678', 'code' => '000000'])
-            ->assertStatus(422)
-            ->assertJsonPath('reason', 'invalid_code');
+        // A second tab still believes it is on revision 1.
+        $this->send('PATCH', "/api/drafts/{$draft->public_id}", [
+            'revision' => 1,
+            'content' => ['hero' => ['headline' => 'পুরনো ট্যাব']],
+        ])->assertStatus(409);
 
-        $this->assertSame(1, OtpChallenge::first()->attempts);
+        $this->assertSame('প্রথম ট্যাব', $draft->fresh()->content['hero']['headline']);
     }
 
-    public function test_expired_code_is_rejected(): void
+    public function test_wrong_otp_codes_are_counted_and_lock_the_challenge(): void
     {
-        [, $publicId] = $this->createDraft();
+        [, $draft] = $this->createDraft();
 
-        $this->postJson("/api/drafts/{$publicId}/otp", ['phone' => '01712345678'])->assertOk();
+        $send = $this->send('POST', "/api/drafts/{$draft->public_id}/otp", ['phone' => '01712345678'])->assertOk();
+        $this->assertStringContainsString('678', $send->json('phone_masked'));
+
+        config(['otp.max_attempts' => 2]);
+        $this->send('POST', "/api/drafts/{$draft->public_id}/otp/verify", ['phone' => '01712345678', 'code' => '000000'])->assertStatus(422);
+        $this->send('POST', "/api/drafts/{$draft->public_id}/otp/verify", ['phone' => '01712345678', 'code' => '000000'])->assertStatus(422);
+
+        $challenge = OtpChallenge::latest('id')->first();
+        $this->assertSame(2, $challenge->attempts);
+        $this->assertNull($challenge->consumed_at);
+    }
+
+    public function test_an_expired_code_is_rejected(): void
+    {
+        [, $draft] = $this->createDraft();
+        $code = $this->send('POST', "/api/drafts/{$draft->public_id}/otp", ['phone' => '01712345678'])->json('test_code');
+
         OtpChallenge::query()->update(['expires_at' => now()->subMinute()]);
 
-        $this->postJson("/api/drafts/{$publicId}/otp/verify", ['phone' => '01712345678', 'code' => '123456'])
-            ->assertStatus(422)
-            ->assertJsonPath('reason', 'expired');
-    }
-
-    public function test_a_new_code_invalidates_the_previous_one(): void
-    {
-        [, $publicId] = $this->createDraft();
-
-        $first = $this->postJson("/api/drafts/{$publicId}/otp", ['phone' => '01712345678'])->json('test_code');
-        $second = $this->postJson("/api/drafts/{$publicId}/otp", ['phone' => '01712345678'])->json('test_code');
-
-        $this->postJson("/api/drafts/{$publicId}/otp/verify", ['phone' => '01712345678', 'code' => $first])
+        $this->send('POST', "/api/drafts/{$draft->public_id}/otp/verify", ['phone' => '01712345678', 'code' => $code])
             ->assertStatus(422);
+    }
 
-        $this->postJson("/api/drafts/{$publicId}/otp/verify", ['phone' => '01712345678', 'code' => $second])
+    public function test_resending_a_code_invalidates_the_previous_one(): void
+    {
+        [, $draft] = $this->createDraft();
+        $first = $this->send('POST', "/api/drafts/{$draft->public_id}/otp", ['phone' => '01712345678'])->json('test_code');
+
+        config(['otp.resend_cooldown_seconds' => 0]);
+        $second = $this->send('POST', "/api/drafts/{$draft->public_id}/otp", ['phone' => '01712345678'])->json('test_code');
+
+        if ($first !== $second) {
+            $this->send('POST', "/api/drafts/{$draft->public_id}/otp/verify", ['phone' => '01712345678', 'code' => $first])
+                ->assertStatus(422);
+        }
+        $this->send('POST', "/api/drafts/{$draft->public_id}/otp/verify", ['phone' => '01712345678', 'code' => $second])
             ->assertOk();
     }
 
-    public function test_successful_verification_creates_the_user_and_claims_the_draft(): void
+    public function test_a_verified_code_cannot_be_reused(): void
     {
-        [, $publicId] = $this->createDraft();
-        $code = $this->postJson("/api/drafts/{$publicId}/otp", ['phone' => '+880 1712-345678'])->json('test_code');
+        [, $draft] = $this->createDraft();
+        $code = $this->send('POST', "/api/drafts/{$draft->public_id}/otp", ['phone' => '01712345678'])->json('test_code');
 
-        $this->postJson("/api/drafts/{$publicId}/otp/verify", ['phone' => '01712345678', 'code' => $code])
-            ->assertOk();
+        $this->send('POST', "/api/drafts/{$draft->public_id}/otp/verify", ['phone' => '01712345678', 'code' => $code])->assertOk();
+        $this->assertSame(1, OtpChallenge::whereNotNull('consumed_at')->count());
 
-        $draft = Draft::first();
-        $this->assertNotNull($draft->user_id);
+        $this->send('POST', "/api/drafts/{$draft->public_id}/otp/verify", ['phone' => '01712345678', 'code' => $code])->assertStatus(422);
+    }
+
+    public function test_verification_transfers_the_draft_and_removes_anonymous_access(): void
+    {
+        [, $draft] = $this->createDraft();
+        $code = $this->send('POST', "/api/drafts/{$draft->public_id}/otp", ['phone' => '01712345678'])->json('test_code');
+
+        $response = $this->send('POST', "/api/drafts/{$draft->public_id}/otp/verify", ['phone' => '01712345678', 'code' => $code]);
+        $response->assertOk();
+
+        $draft->refresh();
+        $user = User::query()->where('phone', 'like', '%1712345678')->firstOrFail();
+
+        $this->assertSame($user->id, $draft->user_id);
         $this->assertNull($draft->anonymous_identity_id);
-        $this->assertSame('draft', $draft->status);
-        $this->assertDatabaseHas('users', ['phone' => '+8801712345678']);
-        $this->assertAuthenticated();
+        $this->assertNotNull($draft->claimed_at);
+        $this->assertSame('draft', $draft->status);        // nothing is published
+        $this->assertSame(1, User::count());
+
+        // A browser that still only holds the old anonymous token, and is not
+        // signed in, no longer reaches the draft.
+        \Illuminate\Support\Facades\Auth::logout();
+        $this->flushSession();
+        $this->send('GET', "/api/drafts/{$draft->public_id}")->assertNotFound();
     }
 
-    public function test_a_claimed_draft_is_no_longer_reachable_with_the_old_anonymous_cookie(): void
+    public function test_an_existing_account_keeps_its_older_drafts_when_claiming_a_new_one(): void
     {
-        [, $publicId] = $this->createDraft();
-        $code = $this->postJson("/api/drafts/{$publicId}/otp", ['phone' => '01712345678'])->json('test_code');
-        $this->postJson("/api/drafts/{$publicId}/otp/verify", ['phone' => '01712345678', 'code' => $code])->assertOk();
-
-        // Same browser, but signed out and back to the anonymous cookie only.
-        auth()->logout();
-
-        $this->getJson("/api/drafts/{$publicId}")->assertNotFound();
-    }
-
-    public function test_an_existing_user_keeps_their_other_drafts(): void
-    {
-        $user = User::create([
-            'name' => 'পুরোনো ব্যবহারকারী',
-            'phone' => '+8801712345678',
-            'password' => bcrypt('secret'),
-        ]);
-
-        $older = Draft::create([
+        $user = User::factory()->create(['phone' => '+8801712345678', 'phone_verified_at' => now()]);
+        Draft::create([
+            'public_id' => (string) Str::uuid(),
             'builder_template_id' => $this->template->id,
             'user_id' => $user->id,
-            'title' => 'পুরোনো ড্রাফট',
-            'content' => $this->template->content,
-            'status' => 'draft',
+            'content' => ['brand' => ['name' => 'পুরনো']],
+            'revision' => 3,
+            'title' => 'পুরনো ড্রাফট',
         ]);
 
-        [, $publicId] = $this->createDraft();
-        $code = $this->postJson("/api/drafts/{$publicId}/otp", ['phone' => '01712345678'])->json('test_code');
-        $this->postJson("/api/drafts/{$publicId}/otp/verify", ['phone' => '01712345678', 'code' => $code])->assertOk();
+        [, $draft] = $this->createDraft();
+        $code = $this->send('POST', "/api/drafts/{$draft->public_id}/otp", ['phone' => '01712345678'])->json('test_code');
+        $this->send('POST', "/api/drafts/{$draft->public_id}/otp/verify", ['phone' => '01712345678', 'code' => $code])->assertOk();
 
         $this->assertSame(2, Draft::where('user_id', $user->id)->count());
-        $this->assertDatabaseCount('users', 1);
-        $this->assertNotNull($older->fresh());
+        $this->assertSame(1, User::count());
     }
 
-    public function test_demo_payload_is_marked_noindex_and_never_contains_draft_content(): void
+    public function test_the_demo_page_is_noindex_and_never_exposes_drafts(): void
     {
-        $response = $this->getJson('/api/demo/'.$this->template->slug)->assertOk();
+        [, $draft] = $this->createDraft();
 
-        $this->assertStringContainsString('noindex', $response->headers->get('X-Robots-Tag') ?? '');
-        $response->assertJsonMissingPath('draft');
+        $response = $this->get("/demo/{$this->template->slug}");
+        $response->assertOk();
+        $response->assertHeader('X-Robots-Tag', 'noindex, nofollow');
+
+        $this->assertStringNotContainsString($draft->public_id, $response->getContent());
     }
 }

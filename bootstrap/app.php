@@ -12,8 +12,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // The visitor token is an opaque random secret that is hashed server-side,
-        // the same model as Laravel's own session cookie (not encrypted).
+        // The visitor token is an opaque random secret that is only ever stored
+        // hashed server-side, so it travels as a plain HttpOnly cookie (the same
+        // model as Laravel's own session cookie).
         $middleware->encryptCookies(except: ['sp_visitor']);
 
         $middleware->alias([
