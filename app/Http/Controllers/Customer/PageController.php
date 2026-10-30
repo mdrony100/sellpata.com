@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Customer;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Models\BuilderTemplate;
 use App\Models\Draft;
 use App\Models\Page;
 use App\Services\Platform\Entitlements;
 use App\Services\Platform\PageMedia;
+use App\Support\Landing\ThemeCatalog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -32,7 +34,7 @@ class PageController extends Controller
     public function index(Request $request)
     {
         $store = $this->store($request);
-        $pages = $store->pages()->latest()->get();
+        $pages = $store->pages()->with('template')->latest()->get();
 
         return response()->json([
             'store' => ['username' => $store->username, 'url' => $store->publicUrl()],
@@ -46,7 +48,12 @@ class PageController extends Controller
                 'url' => $p->status === 'published' ? $store->publicUrl($p) : null,
                 'updated_at' => $p->updated_at?->toIso8601String(),
                 'template' => $p->template?->name,
+                'template_id' => $p->template_id,
+                'design' => $p->template?->design,
                 'thumbnail' => $p->template?->thumbnail,
+                'theme_pending' => $p->status === 'published'
+                    && $p->published_template_id
+                    && (int) $p->published_template_id !== (int) $p->template_id,
             ]),
         ]);
     }
@@ -195,6 +202,7 @@ class PageController extends Controller
                 'content' => $content,
                 'status' => 'published',
                 'published_content' => $content,
+                'published_template_id' => $page->template_id,
                 'published_at' => now(),
             ])->save();
 
@@ -269,6 +277,74 @@ class PageController extends Controller
         return response()->json(['ok' => true, 'page_id' => $copy->id], 201);
     }
 
+    /** Active landing themes a merchant may switch to. Every current plan may use them. */
+    public function themes()
+    {
+        return response()->json(['themes' => ThemeCatalog::publicChoices()]);
+    }
+
+    public function switchTheme(Request $request, Page $page)
+    {
+        $page = $this->owned($request, $page);
+
+        $data = $request->validate([
+            'template_id' => ['required', 'integer', 'exists:builder_templates,id'],
+            'confirm' => ['required', 'accepted'],
+            'republish' => ['sometimes', 'boolean'],
+        ]);
+
+        $next = BuilderTemplate::where('is_published', true)->find($data['template_id']);
+        if ($next === null || ! ThemeCatalog::isLanding($next->design)) {
+            return response()->json(['message' => 'এই থিমটি এখন ব্যবহার করা যাবে না।'], 422);
+        }
+
+        $page->loadMissing('template');
+        $merged = ThemeCatalog::applyTheme(
+            $page->content ?? [],
+            $page->template?->content ?? [],
+            $next->content ?? []
+        );
+        $republish = $request->boolean('republish') && $page->status === 'published';
+
+        DB::transaction(function () use ($page, $next, $merged, $republish, $request) {
+            $previousTemplateId = $page->template_id;
+            $attributes = [
+                'template_id' => $next->id,
+                'content' => $merged,
+                'revision' => $page->revision + 1,
+            ];
+
+            if ($page->status === 'published' && ! $republish && ! $page->published_template_id) {
+                $attributes['published_template_id'] = $previousTemplateId;
+            }
+
+            if ($republish) {
+                $attributes['published_content'] = $merged;
+                $attributes['published_template_id'] = $next->id;
+                $attributes['published_at'] = now();
+            }
+
+            $page->forceFill($attributes)->save();
+            AuditLog::record('page.theme_changed', $page, [
+                'from' => $previousTemplateId,
+                'to' => $next->id,
+                'republish' => $republish,
+            ], $request->user()->id);
+        });
+
+        $fresh = $page->fresh();
+
+        return response()->json([
+            'ok' => true,
+            'template' => $next->name,
+            'design' => $next->design,
+            'republished' => $republish,
+            'theme_pending' => $fresh->status === 'published'
+                && $fresh->published_template_id
+                && (int) $fresh->published_template_id !== (int) $fresh->template_id,
+        ]);
+    }
+
     public function destroy(Request $request, Page $page)
     {
         $page = $this->owned($request, $page);
@@ -304,6 +380,7 @@ class PageController extends Controller
 
             $page->forceFill([
                 'template_id' => $draft->builder_template_id,
+                'published_template_id' => $draft->builder_template_id,
                 'content' => $content,
                 'revision' => $page->revision + 1,
                 'status' => 'published',

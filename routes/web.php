@@ -116,6 +116,8 @@ Route::prefix('api')->middleware('auth')->group(function () {
     Route::post('/store', [StoreSetupController::class, 'store']);
 
     Route::get('/pages', [PageController::class, 'index']);
+    Route::get('/landing-themes', [PageController::class, 'themes']);
+    Route::post('/pages/{page}/theme', [PageController::class, 'switchTheme']);
     Route::post('/pages', [PageController::class, 'fromDraft']);
     Route::patch('/pages/{page}', [PageController::class, 'update']);
     Route::post('/pages/{page}/edit', [PageController::class, 'edit']);

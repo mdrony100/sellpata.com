@@ -90,13 +90,17 @@ class DraftController extends Controller
         $next = BuilderTemplate::where('is_published', true)->findOrFail($data['template_id']);
         abort_unless(ThemeCatalog::isLanding($next->design), 422, 'এই ডিজাইনে বদলানো যায় না।');
 
-        $merged = ThemeCatalog::mergeContent($draft->content ?? [], $next->content ?? []);
+        $draft->loadMissing('template');
+        $merged = ThemeCatalog::applyTheme(
+            $draft->content ?? [],
+            $draft->template?->content ?? [],
+            $next->content ?? []
+        );
 
         $draft->forceFill([
             'builder_template_id' => $next->id,
             'content' => $this->sanitize($merged),
             'revision' => $draft->revision + 1,
-            'title' => $next->name,
             'last_saved_at' => now(),
         ])->save();
 
@@ -181,19 +185,7 @@ class DraftController extends Controller
 
     private function themeChoices(): array
     {
-        return BuilderTemplate::query()
-            ->whereIn('design', ThemeCatalog::DESIGNS)
-            ->where('is_published', true)
-            ->orderBy('sort_order')
-            ->get(['id', 'name', 'slug', 'design', 'tagline'])
-            ->map(fn (BuilderTemplate $theme) => [
-                'id' => $theme->id,
-                'name' => $theme->name,
-                'slug' => $theme->slug,
-                'design' => $theme->design,
-                'tagline' => $theme->tagline,
-            ])
-            ->all();
+        return ThemeCatalog::publicChoices();
     }
 
     private function payload(Draft $draft): array
