@@ -176,7 +176,11 @@
                             placeholder="------"
                             aria-label="যাচাইকরণ কোড"
                         />
-                        <p v-if="testCode" class="editor__hint">ডেভেলপমেন্ট কোড: {{ testCode }}</p>
+                        <div v-if="testCode" class="editor__demo" role="status">
+                            <p class="editor__demo-title">ডেমো মোড — এখনো এসএমএস চালু হয়নি</p>
+                            <p class="editor__demo-code">{{ testCode }}</p>
+                            <button type="button" class="btn btn--ghost btn--sm" @click="fillTestCode">কোড বসিয়ে দিন</button>
+                        </div>
                         <p v-if="codeError" class="editor__error">{{ codeError }}</p>
                         <footer>
                             <button type="button" class="btn btn--primary" :disabled="verifying" @click="verifyOtp">
@@ -229,6 +233,10 @@ const phone = ref('');
 const code = ref('');
 const maskedPhone = ref('');
 const testCode = ref(null);
+
+function fillTestCode() {
+    if (testCode.value) code.value = String(testCode.value);
+}
 const phoneError = ref('');
 const codeError = ref('');
 const sendingPhone = ref(false);

@@ -55,7 +55,9 @@ class OtpController extends Controller
             'expires_in' => (int) config('otp.ttl_seconds'),
             'resend_after' => (int) config('otp.resend_cooldown_seconds'),
             // Local development only; never enabled in production.
-            'test_code' => config('otp.expose_test_code') ? $result['code'] : null,
+            'test_code' => config('otp.expose_test_code') && ! app()->environment('production')
+                ? $result['code']
+                : null,
         ]);
     }
 

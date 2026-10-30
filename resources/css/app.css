@@ -1275,3 +1275,27 @@ a:hover { color: var(--brand-800); }
     position:sticky;top:0;z-index:10;background:#12281f;color:#e8f1b0;font-size:.8rem;
     text-align:center;padding:8px 12px;
 }
+
+/* Demo-only OTP panel: visible until a real SMS provider is configured. */
+.editor__demo {
+    margin: 0.75rem 0 0.25rem;
+    padding: 0.85rem 1rem;
+    border: 1px dashed var(--brand-600);
+    border-radius: var(--r-md);
+    background: var(--lime-soft);
+    text-align: center;
+}
+.editor__demo-title {
+    margin: 0 0 0.25rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--brand-800);
+}
+.editor__demo-code {
+    margin: 0 0 0.5rem;
+    font-size: 1.75rem;
+    font-weight: 700;
+    letter-spacing: 0.35em;
+    color: var(--brand-900);
+    font-variant-numeric: tabular-nums;
+}

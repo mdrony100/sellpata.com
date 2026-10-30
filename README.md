@@ -90,6 +90,16 @@ provider (SSLWireless, Twilio, …), bind it in a service provider, and set
 `OTP_DRIVER` accordingly. The verifier refuses to claim success when the
 sender reports itself as unconfigured.
 
+### Demo mode (no SMS yet)
+
+Until a real provider is wired up, the generated code is printed on screen in
+the verification step ("ডেমো মোড — এখনো এসএমএস চালু হয়নি") with a one-tap
+"কোড বসিয়ে দিন" button, and the same code also goes to `storage/logs/otp.log`.
+`OTP_EXPOSE_TEST_CODE=true` is the default outside production; the controller
+refuses to return the code when `APP_ENV=production`, so nothing leaks once the
+site is live. Wire a real sender and the panel disappears on its own
+(`OTP_DRIVER` no longer `log`).
+
 ### Housekeeping (not automated yet)
 
 Expired anonymous identities, their drafts and uploads are not purged on a
