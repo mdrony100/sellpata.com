@@ -1,0 +1,403 @@
+<template>
+    <div class="builder">
+        <div v-if="loading" class="builder__state">লোড হচ্ছে…</div>
+
+        <div v-else-if="notFound" class="builder__state">
+            <h1>এই ড্রাফটটি পাওয়া যায়নি</h1>
+            <p>লিংকটি অসম্পূর্ণ, অথবা এটি অন্য ব্রাউজারে তৈরি হয়েছে।</p>
+            <RouterLink to="/start" class="btn btn--primary">টেমপ্লেটে ফিরে যান</RouterLink>
+        </div>
+
+        <template v-else>
+            <header class="builder__bar">
+                <RouterLink :to="{ name: 'start', query: fromCategory ? { category: fromCategory } : {} }" class="onb__back">
+                    ← টেমপ্লেটে ফিরে যান
+                </RouterLink>
+                <div class="builder__title">
+                    <strong>{{ template?.name }}</strong>
+                    <span v-if="statusLabel" class="builder__status" :class="`builder__status--${status}`">{{ statusLabel }}</span>
+                </div>
+                <div class="builder__bar-actions">
+                    <button v-if="!editing" type="button" class="btn btn--primary btn--lg" @click="editing = true">
+                        ল্যান্ডিং পেজ সাজান
+                    </button>
+                    <button v-else type="button" class="btn btn--primary btn--lg" @click="publish">
+                        প্রকাশ করুন
+                    </button>
+                </div>
+            </header>
+
+            <p class="builder__note">
+                আপনার কাজ এই ব্রাউজারে সংরক্ষিত থাকবে। ফোন নম্বর যাচাই করলে এটি আপনার অ্যাকাউন্টে যুক্ত হবে।
+            </p>
+
+            <div v-if="recovery" class="builder__banner">
+                <p>এই ব্রাউজারে সংরক্ষিত না হওয়া নতুন পরিবর্তন পাওয়া গেছে।</p>
+                <button type="button" class="btn btn--primary btn--sm" @click="draftApi.applyRecovery()">পুনরুদ্ধার করুন</button>
+                <button type="button" class="btn btn--ghost btn--sm" @click="draftApi.dismissRecovery()">বাতিল করুন</button>
+            </div>
+
+            <div v-if="status === 'conflict'" class="builder__banner builder__banner--warn">
+                <p>অন্য একটি ট্যাবে এই ড্রাফট বদলানো হয়েছে।</p>
+                <button type="button" class="btn btn--primary btn--sm" @click="draftApi.restoreServer()">সার্ভারের সংস্করণ নিন</button>
+                <button type="button" class="btn btn--ghost btn--sm" @click="draftApi.keepMine()">আমার লেখা রাখুন</button>
+            </div>
+
+            <div v-if="error" class="builder__banner builder__banner--error">
+                <p>{{ error }}</p>
+                <button v-if="status === 'error' || status === 'offline'" type="button" class="btn btn--ghost btn--sm" @click="draftApi.saveNow()">
+                    আবার চেষ্টা করুন
+                </button>
+            </div>
+
+            <!-- Initial view: preview + start editing -->
+            <section v-if="!editing" class="builder__intro">
+                <TemplateRender :content="content" :design="template?.design" :media="media" />
+            </section>
+
+            <!-- Editing workspace -->
+            <div v-else class="builder__workspace">
+                <div class="builder__tabs" role="tablist">
+                    <button type="button" role="tab" :aria-selected="tab === 'edit'" :class="{ on: tab === 'edit' }" @click="tab = 'edit'">এডিট করুন</button>
+                    <button type="button" role="tab" :aria-selected="tab === 'live'" :class="{ on: tab === 'live' }" @click="tab = 'live'">লাইভ প্রিভিউ</button>
+                </div>
+
+                <div class="builder__pane" :class="{ 'builder__pane--hidden': tab !== 'edit' }">
+                    <TemplateRender :content="content" :design="template?.design" :media="media" editable @edit="openEditor" />
+                </div>
+
+                <div class="builder__pane builder__pane--preview" :class="{ 'builder__pane--hidden': tab !== 'live' }">
+                    <TemplateRender :content="content" :design="template?.design" :media="media" />
+                </div>
+            </div>
+
+            <!-- Field editor -->
+            <div v-if="editingField" class="editor" role="dialog" aria-modal="true" :aria-label="`${editingField.label} সম্পাদনা`">
+                <div class="editor__panel">
+                    <header>
+                        <h2>{{ editingField.label }}</h2>
+                        <button type="button" class="btn btn--ghost btn--sm" @click="closeEditor">বন্ধ করুন</button>
+                    </header>
+
+                    <template v-if="editingField.type === 'list'">
+                        <div v-for="(item, index) in listItems" :key="index" class="editor__list-item">
+                            <div v-for="sub in editingField.item" :key="sub.key" class="editor__field">
+                                <label :for="`${editingField.key}-${index}-${sub.key}`">{{ sub.label }}</label>
+                                <textarea
+                                    :id="`${editingField.key}-${index}-${sub.key}`"
+                                    :value="item[sub.key] ?? ''"
+                                    rows="2"
+                                    @input="setListItem(index, sub.key, $event.target.value)"
+                                />
+                            </div>
+                            <div class="editor__row-actions">
+                                <button type="button" class="btn btn--ghost btn--sm" :disabled="index === 0" @click="moveItem(index, -1)">উপরে</button>
+                                <button type="button" class="btn btn--ghost btn--sm" :disabled="index === listItems.length - 1" @click="moveItem(index, 1)">নিচে</button>
+                                <button type="button" class="btn btn--ghost btn--sm" @click="removeItem(index)">মুছুন</button>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn--primary btn--sm" @click="addItem">নতুন যোগ করুন</button>
+                    </template>
+
+                    <template v-else-if="editingField.type === 'toggle'">
+                        <label class="editor__toggle">
+                            <input type="checkbox" :checked="valueAt(editingField.key) !== false" @change="update(editingField.key, $event.target.checked)" />
+                            সেকশনটি দেখাবেন
+                        </label>
+                    </template>
+
+                    <template v-else-if="editingField.type === 'image'">
+                        <input type="file" accept="image/png,image/jpeg,image/webp" @change="uploadImage(editingField.key, $event)" />
+                        <p class="editor__hint">JPG, PNG বা WebP, সর্বোচ্চ ৪ মেগাবাইট।</p>
+                        <button v-if="media[editingField.key]" type="button" class="btn btn--ghost btn--sm" @click="clearImage(editingField.key)">ছবি সরান</button>
+                    </template>
+
+                    <template v-else-if="editingField.type === 'color'">
+                        <input type="color" :value="valueAt(editingField.key) || '#0d3b2e'" @input="update(editingField.key, $event.target.value)" />
+                    </template>
+
+                    <template v-else>
+                        <textarea
+                            v-if="editingField.type === 'textarea'"
+                            :value="valueAt(editingField.key)"
+                            rows="4"
+                            @input="update(editingField.key, $event.target.value)"
+                        />
+                        <input
+                            v-else
+                            :type="editingField.type === 'price' ? 'number' : 'text'"
+                            :inputmode="editingField.type === 'price' ? 'decimal' : undefined"
+                            :value="valueAt(editingField.key)"
+                            @input="update(editingField.key, editingField.type === 'price' ? formatNumberInput($event.target.value) : $event.target.value)"
+                        />
+                    </template>
+
+                    <footer>
+                        <button type="button" class="btn btn--primary" @click="closeEditor">সংরক্ষণ করুন</button>
+                    </footer>
+                </div>
+            </div>
+
+            <div class="builder__publish-bar">
+                <button type="button" class="btn btn--primary btn--lg" @click="publish">প্রকাশ করুন</button>
+            </div>
+
+            <!-- Phone + OTP -->
+            <div v-if="phoneOpen" class="editor" role="dialog" aria-modal="true" @keydown.esc="closePhone">
+                <div class="editor__panel editor__panel--narrow">
+                    <template v-if="claimStep === 'phone'">
+                        <h2>আপনার ল্যান্ডিং পেজটি নিজের নামে সংরক্ষণ করুন</h2>
+                        <p class="editor__lede">মোবাইল নম্বর যাচাই করুন। আপনার সাজানো পেজটি আপনার অ্যাকাউন্টে যুক্ত হবে।</p>
+                        <label for="phone">মোবাইল নম্বর (+৮৮০)</label>
+                        <div class="editor__phone">
+                            <span>+88</span>
+                            <input id="phone" v-model="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="01XXXXXXXXX" />
+                        </div>
+                        <p class="editor__hint">এই নম্বরে একটি যাচাইকরণ কোড পাঠানো হবে।</p>
+                        <p v-if="phoneError" class="editor__error">{{ phoneError }}</p>
+                        <footer>
+                            <button type="button" class="btn btn--primary" :disabled="sendingPhone" @click="sendOtp">
+                                {{ sendingPhone ? 'পাঠানো হচ্ছে…' : 'ওটিপি পাঠান' }}
+                            </button>
+                            <button type="button" class="btn btn--ghost" @click="closePhone">বন্ধ করুন</button>
+                        </footer>
+                    </template>
+
+                    <template v-else-if="claimStep === 'code'">
+                        <h2>কোড যাচাই করুন</h2>
+                        <p class="editor__lede">{{ maskedPhone }} নম্বরে পাঠানো ৬ সংখ্যার কোডটি লিখুন।</p>
+                        <input
+                            v-model="code"
+                            class="editor__code"
+                            type="text"
+                            inputmode="numeric"
+                            autocomplete="one-time-code"
+                            maxlength="6"
+                            placeholder="------"
+                            aria-label="যাচাইকরণ কোড"
+                        />
+                        <p v-if="testCode" class="editor__hint">ডেভেলপমেন্ট কোড: {{ testCode }}</p>
+                        <p v-if="codeError" class="editor__error">{{ codeError }}</p>
+                        <footer>
+                            <button type="button" class="btn btn--primary" :disabled="verifying" @click="verifyOtp">
+                                {{ verifying ? 'যাচাই হচ্ছে…' : 'যাচাই করুন' }}
+                            </button>
+                            <button type="button" class="btn btn--ghost" @click="changeNumber">নম্বর পরিবর্তন করুন</button>
+                            <button type="button" class="btn btn--ghost" :disabled="cooldown > 0 || sendingPhone" @click="resendOtp">
+                                {{ cooldown > 0 ? `আবার কোড পাঠান (${cooldown})` : 'আবার কোড পাঠান' }}
+                            </button>
+                        </footer>
+                    </template>
+
+                    <template v-else>
+                        <h2>ফোন নম্বর যাচাই হয়েছে!</h2>
+                        <p class="editor__lede">আপনার ল্যান্ডিং পেজটি আপনার অ্যাকাউন্টে সংরক্ষিত হয়েছে। এটি এখনো প্রকাশিত হয়নি।</p>
+                        <footer>
+                            <button type="button" class="btn btn--primary" @click="closePhone">এডিটরে ফিরে যান</button>
+                        </footer>
+                    </template>
+                </div>
+            </div>
+        </template>
+    </div>
+</template>
+
+<script setup>
+import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { useRoute } from 'vue-router';
+import TemplateRender from '../components/builder/TemplateRender.vue';
+import { useDraft } from '../composables/useDraft';
+import { api, getPath } from '../lib/api';
+
+const route = useRoute();
+const publicId = route.params.publicId;
+
+const draftApi = useDraft(publicId);
+const { content, media, template, status, statusLabel, recovery } = draftApi;
+
+const loading = ref(true);
+const notFound = ref(false);
+const editing = ref(false);
+const tab = ref('edit');
+const error = ref('');
+const editingField = ref(null);
+const fromCategory = route.query.from ?? null;
+
+const phoneOpen = ref(false);
+const claimStep = ref('phone');
+const phone = ref('');
+const code = ref('');
+const maskedPhone = ref('');
+const testCode = ref(null);
+const phoneError = ref('');
+const codeError = ref('');
+const sendingPhone = ref(false);
+const verifying = ref(false);
+const cooldown = ref(0);
+let cooldownTimer = null;
+
+const schema = computed(() => template.value?.schema ?? []);
+const listItems = computed(() => (editingField.value ? (getPath(content, editingField.value.key) ?? []) : []));
+
+function openEditor(key) {
+    const root = key.split('.')[0];
+    const field = schema.value.find((item) => item.key === root) ?? schema.value.find((item) => item.key === key);
+
+    if (field) editingField.value = { ...field, key: field.key };
+}
+
+function closeEditor() {
+    editingField.value = null;
+}
+
+function update(path, value) {
+    draftApi.updateAt(path, value);
+}
+
+function valueAt(path) {
+    return getPath(content, path);
+}
+
+function formatNumberInput(value) {
+    return value.replace(/[^0-9.]/g, '');
+}
+
+function addItem() {
+    const field = editingField.value;
+    const blank = Object.fromEntries(field.item.map((sub) => [sub.key, '']));
+    draftApi.updateAt(field.key, [...listItems.value, blank]);
+}
+
+function setListItem(index, key, value) {
+    const items = JSON.parse(JSON.stringify(listItems.value));
+    items[index][key] = value;
+    draftApi.updateAt(editingField.value.key, items);
+}
+
+function removeItem(index) {
+    const items = JSON.parse(JSON.stringify(listItems.value));
+    items.splice(index, 1);
+    draftApi.updateAt(editingField.value.key, items);
+}
+
+function moveItem(index, delta) {
+    const items = JSON.parse(JSON.stringify(listItems.value));
+    const target = index + delta;
+    if (target < 0 || target >= items.length) return;
+    [items[index], items[target]] = [items[target], items[index]];
+    draftApi.updateAt(editingField.value.key, items);
+}
+
+async function uploadImage(field, event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const form = new FormData();
+    form.append('field', field);
+    form.append('file', file);
+
+    try {
+        const result = await api(`/api/drafts/${publicId}/media`, { method: 'POST', form });
+        draftApi.media[field] = result.url;
+    } catch (e) {
+        error.value = e.data?.message ?? 'ছবি আপলোড করা যায়নি।';
+    }
+}
+
+function clearImage(field) {
+    delete draftApi.media[field];
+    draftApi.updateAt(field, null);
+}
+
+async function publish() {
+    error.value = '';
+
+    const missing = schema.value.find((field) => field.required && !String(valueAt(field.key) ?? '').trim());
+
+    if (missing) {
+        error.value = `“${missing.label}” পূরণ করুন।`;
+        openEditor(missing.key);
+        return;
+    }
+
+    const saved = await draftApi.flush();
+
+    if (!saved) {
+        error.value = 'সব পরিবর্তন সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।';
+        return;
+    }
+
+    claimStep.value = 'phone';
+    phoneOpen.value = true;
+}
+
+async function sendOtp() {
+    phoneError.value = '';
+    sendingPhone.value = true;
+
+    try {
+        const result = await api(`/api/drafts/${publicId}/otp`, { method: 'POST', body: { phone: phone.value } });
+        maskedPhone.value = result.phone_masked;
+        testCode.value = result.test_code;
+        claimStep.value = 'code';
+        startCooldown(result.resend_after ?? 60);
+    } catch (e) {
+        phoneError.value = e.data?.error ?? e.data?.errors?.phone?.[0] ?? 'কোড পাঠানো যায়নি।';
+    } finally {
+        sendingPhone.value = false;
+    }
+}
+
+async function verifyOtp() {
+    codeError.value = '';
+    verifying.value = true;
+
+    try {
+        await api(`/api/drafts/${publicId}/otp/verify`, { method: 'POST', body: { phone: phone.value, code: code.value } });
+        claimStep.value = 'done';
+    } catch (e) {
+        codeError.value = e.data?.error ?? 'কোডটি সঠিক নয়।';
+    } finally {
+        verifying.value = false;
+    }
+}
+
+function changeNumber() {
+    claimStep.value = 'phone';
+    code.value = '';
+    codeError.value = '';
+}
+
+async function resendOtp() {
+    code.value = '';
+    await sendOtp();
+}
+
+function startCooldown(seconds) {
+    cooldown.value = seconds;
+    clearInterval(cooldownTimer);
+    cooldownTimer = setInterval(() => {
+        cooldown.value -= 1;
+        if (cooldown.value <= 0) clearInterval(cooldownTimer);
+    }, 1000);
+}
+
+function closePhone() {
+    phoneOpen.value = false;
+    clearInterval(cooldownTimer);
+    cooldown.value = 0;
+    if (claimStep.value === 'done') claimStep.value = 'phone';
+}
+
+onMounted(async () => {
+    try {
+        await draftApi.load();
+    } catch (e) {
+        notFound.value = true;
+    } finally {
+        loading.value = false;
+    }
+});
+
+onUnmounted(() => clearInterval(cooldownTimer));
+</script>
