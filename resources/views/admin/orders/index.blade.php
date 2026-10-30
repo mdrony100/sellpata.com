@@ -25,7 +25,7 @@
             <table style="width:100%;border-collapse:collapse;font-size:.95rem">
                 <thead><tr style="text-align:left;color:var(--muted);font-size:.85rem">
                     <th style="padding:8px">অর্ডার</th><th style="padding:8px">স্টোর</th><th style="padding:8px">ক্রেতা</th>
-                    <th style="padding:8px">মোট</th><th style="padding:8px">অবস্থা</th><th style="padding:8px">পেমেন্ট</th>
+                    <th style="padding:8px">মোট</th><th style="padding:8px">অবস্থা</th><th style="padding:8px">পেমেন্ট</th><th></th>
                 </tr></thead>
                 <tbody>
                 @foreach ($orders as $order)
@@ -36,6 +36,7 @@
                         <td style="padding:8px">৳{{ number_format($order->total) }}</td>
                         <td style="padding:8px">{{ $order->status }}</td>
                         <td style="padding:8px">{{ $order->payment_status === 'paid' ? 'পরিশোধিত' : 'বাকি' }}</td>
+                        <td style="padding:8px"><a href="{{ route('admin.orders.invoice', $order) }}" target="_blank" rel="noopener">ইনভয়েস</a></td>
                     </tr>
                 @endforeach
                 </tbody>

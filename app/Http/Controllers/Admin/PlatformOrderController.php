@@ -24,6 +24,18 @@ class PlatformOrderController extends Controller
         return view('admin.orders.index', compact('orders', 'filters'));
     }
 
+    public function invoice(Order $order, \App\Services\Platform\InvoiceService $invoices)
+    {
+        $invoice = \App\Models\Invoice::where('order_id', $order->id)->firstOrFail();
+
+        \App\Models\AuditLog::record('invoice.downloaded', $invoice, ['order' => $order->reference], auth()->id());
+
+        return response($invoices->pdf($invoice), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.$invoice->number.'.pdf"',
+        ]);
+    }
+
     public function index(Request $request)
     {
         $query = Order::with('store');

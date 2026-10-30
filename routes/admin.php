@@ -43,6 +43,7 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('customers/{store}/plan', [\App\Http\Controllers\Admin\CustomerController::class, 'assignPlan'])->name('customers.plan');
 
         Route::get('orders', [\App\Http\Controllers\Admin\PlatformOrderController::class, 'pageIndex'])->name('orders.index');
+        Route::get('orders/{order}/invoice', [\App\Http\Controllers\Admin\PlatformOrderController::class, 'invoice'])->name('orders.invoice');
 
         Route::get('plans', [\App\Http\Controllers\Admin\PlanController::class, 'pageIndex'])->name('plans.index');
         Route::patch('plans/{plan}', [\App\Http\Controllers\Admin\PlanController::class, 'update'])->name('plans.update');

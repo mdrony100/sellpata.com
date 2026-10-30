@@ -69,6 +69,23 @@ class AdminScreensTest extends TestCase
         $this->assertSame(1, $store->pages()->count());
     }
 
+    public function test_admin_can_download_a_store_invoice(): void
+    {
+        [, $store] = $this->customer();
+        $admin = User::create(['name' => 'অ্যাডমিন', 'phone' => '+8801911111111', 'password' => bcrypt('x'), 'is_admin' => true]);
+
+        $this->postJson('http://organicfood.sellpata.com/checkout', [
+            'customer_name' => 'করিম', 'customer_phone' => '01712345678', 'address' => 'মিরপুর, ঢাকা',
+        ])->assertCreated();
+
+        $order = $store->orders()->firstOrFail();
+        $response = $this->actingAs($admin)->get("/admin/orders/{$order->id}/invoice");
+
+        $response->assertOk();
+        $this->assertStringStartsWith('%PDF', $response->getContent());
+        $this->assertDatabaseHas('audit_logs', ['action' => 'invoice.downloaded']);
+    }
+
     public function test_order_invoice_downloads_as_a_real_pdf(): void
     {
         [$customer, $store] = $this->customer();
