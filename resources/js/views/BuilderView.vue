@@ -18,12 +18,7 @@
                     <span v-if="statusLabel" class="builder__status" :class="`builder__status--${status}`">{{ statusLabel }}</span>
                 </div>
                 <div class="builder__bar-actions">
-                    <button v-if="!editing" type="button" class="btn btn--primary btn--lg" @click="editing = true">
-                        ল্যান্ডিং পেজ সাজান
-                    </button>
-                    <button v-else type="button" class="btn btn--primary btn--lg" @click="publish">
-                        প্রকাশ করুন
-                    </button>
+                    <button type="button" class="btn btn--primary btn--lg" @click="publish">প্রকাশ করুন</button>
                 </div>
             </header>
 
@@ -50,13 +45,8 @@
                 </button>
             </div>
 
-            <!-- Initial view: preview + start editing -->
-            <section v-if="!editing" class="builder__intro">
-                <TemplateRender :content="content" :design="template?.design" :media="media" />
-            </section>
-
-            <!-- Editing workspace -->
-            <div v-else class="builder__workspace">
+            <!-- Editing workspace: choosing a design drops you straight in here -->
+            <div class="builder__workspace">
                 <div class="builder__tabs" role="tablist">
                     <button type="button" role="tab" :aria-selected="tab === 'edit'" :class="{ on: tab === 'edit' }" @click="tab = 'edit'">এডিট করুন</button>
                     <button type="button" role="tab" :aria-selected="tab === 'live'" :class="{ on: tab === 'live' }" @click="tab = 'live'">লাইভ প্রিভিউ</button>
@@ -222,7 +212,6 @@ const { content, media, template, status, statusLabel, recovery } = draftApi;
 
 const loading = ref(true);
 const notFound = ref(false);
-const editing = ref(false);
 const tab = ref('edit');
 const error = ref('');
 const editingField = ref(null);
