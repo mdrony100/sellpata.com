@@ -112,7 +112,7 @@ schedule. Until a command is added, run a periodic cleanup of
 Customers connect one domain from **ড্যাশবোর্ড → সেটিংস**. The free
 `{username}.sellpata.com` address stays. DNS is checked on demand
 (`A` on `@` to `PLATFORM_SERVER_IP`, or `CNAME` `www` to the free host).
-Only a **verified** domain (and its `www`) serves that store.
+Only a **verified** domain on a plan that includes the `custom_domain` entitlement (নিজস্ব ডোমেইন — Growth and Business) serves that store. A downgrade stops the custom host immediately.
 
 | Piece | Contract |
 | --- | --- |

@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\BuilderTemplate;
+use App\Models\Plan;
 use App\Models\Store;
+use App\Models\Subscription;
 use App\Models\User;
 use App\Services\Platform\CustomDomainService;
 use App\Services\Platform\DnsLookup;
@@ -67,7 +69,7 @@ class CustomDomainTest extends TestCase
 
     public function test_domain_is_normalised_and_stays_pending_until_a_check(): void
     {
-        $store = $this->makeStore();
+        $store = $this->grantCustomDomain($this->makeStore());
         $this->dns->a['mybrand.com'] = ['169.58.90.98'];
 
         $this->actingAs($this->user)
@@ -78,7 +80,8 @@ class CustomDomainTest extends TestCase
             ->assertJsonPath('free_host', 'organicfood.sellpata.com')
             ->assertJsonPath('server_ip', '169.58.90.98')
             ->assertJsonPath('records.0', ['type' => 'A', 'host' => '@', 'value' => '169.58.90.98'])
-            ->assertJsonPath('records.1', ['type' => 'CNAME', 'host' => 'www', 'value' => 'organicfood.sellpata.com']);
+            ->assertJsonPath('records.1', ['type' => 'CNAME', 'host' => 'www', 'value' => 'organicfood.sellpata.com'])
+            ->assertJsonPath('entitled', true);
 
         $this->assertSame('mybrand.com', $store->fresh()->custom_domain);
         $this->assertNull($store->fresh()->custom_domain_verified_at);
@@ -91,7 +94,7 @@ class CustomDomainTest extends TestCase
 
     public function test_platform_and_invalid_domains_are_rejected(): void
     {
-        $this->makeStore();
+        $this->grantCustomDomain($this->makeStore());
 
         foreach ([
             '   ',
@@ -116,12 +119,13 @@ class CustomDomainTest extends TestCase
 
     public function test_a_domain_is_unique_across_stores_until_it_is_removed(): void
     {
-        $this->makeStore();
+        $this->grantCustomDomain($this->makeStore());
         $this->actingAs($this->user)->postJson('/api/domain', ['domain' => 'mybrand.com'])->assertCreated();
 
         $other = User::create(['name' => 'রহিম', 'phone' => '+8801812345678', 'password' => bcrypt('x')]);
         $this->actingAs($other)->postJson('/api/store', ['username' => 'rahimstore', 'display_name' => 'রহিম'])->assertSuccessful();
         $other->unsetRelation('store');
+        $this->grantCustomDomain($other->store);
         $this->actingAs($other)
             ->postJson('/api/domain', ['domain' => 'https://www.MyBrand.com/hello'])
             ->assertStatus(422);
@@ -141,7 +145,7 @@ class CustomDomainTest extends TestCase
 
     public function test_apex_a_record_matching_the_configured_ip_verifies(): void
     {
-        $store = $this->makeStore();
+        $store = $this->grantCustomDomain($this->makeStore());
         $this->actingAs($this->user)->postJson('/api/domain', ['domain' => 'mybrand.com'])->assertCreated();
 
         config(['platform.server_ip' => '203.0.113.50']);
@@ -167,7 +171,7 @@ class CustomDomainTest extends TestCase
 
     public function test_www_cname_to_the_store_host_verifies_without_an_a_record(): void
     {
-        $this->makeStore();
+        $this->grantCustomDomain($this->makeStore());
         $this->actingAs($this->user)->postJson('/api/domain', ['domain' => 'mybrand.com'])->assertCreated();
 
         $this->dns->cname['www.mybrand.com'] = ['other.sellpata.com'];
@@ -179,13 +183,13 @@ class CustomDomainTest extends TestCase
 
     public function test_check_without_a_domain_is_rejected(): void
     {
-        $this->makeStore();
+        $this->grantCustomDomain($this->makeStore());
         $this->actingAs($this->user)->postJson('/api/domain/check')->assertStatus(422);
     }
 
     public function test_verified_custom_domain_serves_the_store_and_other_hosts_do_not(): void
     {
-        $store = $this->makeStore();
+        $store = $this->grantCustomDomain($this->makeStore());
         $this->publish($store);
         $this->actingAs($this->user)->postJson('/api/domain', ['domain' => 'mybrand.com'])->assertCreated();
 
@@ -244,7 +248,7 @@ class CustomDomainTest extends TestCase
 
     public function test_verified_command_and_localhost_ask_endpoint(): void
     {
-        $first = $this->makeStore();
+        $first = $this->grantCustomDomain($this->makeStore());
         $first->forceFill([
             'custom_domain' => 'mybrand.com',
             'custom_domain_status' => CustomDomainService::VERIFIED,
@@ -253,7 +257,8 @@ class CustomDomainTest extends TestCase
 
         $other = User::create(['name' => 'রহিম', 'phone' => '+8801812345678', 'password' => bcrypt('x')]);
         $this->actingAs($other)->postJson('/api/store', ['username' => 'rahimstore', 'display_name' => 'রহিম'])->assertSuccessful();
-        Store::where('username_lower', 'rahimstore')->firstOrFail()->forceFill([
+        $second = $this->grantCustomDomain(Store::where('username_lower', 'rahimstore')->firstOrFail());
+        $second->forceFill([
             'custom_domain' => 'alpha.com',
             'custom_domain_status' => CustomDomainService::VERIFIED,
             'custom_domain_verified_at' => now(),
@@ -280,9 +285,78 @@ class CustomDomainTest extends TestCase
         $this->get('http://mybrand.com/internal/domain-check?domain=mybrand.com')->assertForbidden();
     }
 
-    public function test_ask_endpoint_refuses_a_public_client_address(): void
+    public function test_plans_without_the_feature_cannot_add_or_check_a_domain(): void
     {
         $store = $this->makeStore();
+        $message = app(CustomDomainService::class)->deniedMessage();
+
+        $this->actingAs($this->user)
+            ->postJson('/api/domain', ['domain' => 'mybrand.com'])
+            ->assertForbidden()
+            ->assertJsonPath('message', $message);
+        $this->assertNull($store->fresh()->custom_domain);
+
+        $this->actingAs($this->user)->getJson('/api/domain')
+            ->assertOk()
+            ->assertJsonPath('entitled', false)
+            ->assertJsonPath('free_host', 'organicfood.sellpata.com');
+
+        $store->forceFill([
+            'custom_domain' => 'mybrand.com',
+            'custom_domain_status' => CustomDomainService::PENDING,
+        ])->save();
+
+        $this->actingAs($this->user)
+            ->postJson('/api/domain/check')
+            ->assertForbidden()
+            ->assertJsonPath('message', $message);
+
+        $without = Plan::query()->where('is_active', true)->get()
+            ->first(fn (Plan $plan) => ! $plan->has('custom_domain') && $plan->slug !== Plan::FREE);
+        $this->assertNotNull($without);
+        $this->assignPlan($store, $without);
+
+        $this->actingAs($this->user)
+            ->postJson('/api/domain', ['domain' => 'other.com'])
+            ->assertForbidden();
+        $this->assertSame('mybrand.com', $store->fresh()->custom_domain);
+    }
+
+    public function test_a_verified_domain_stops_when_the_plan_loses_the_feature(): void
+    {
+        $store = $this->grantCustomDomain($this->makeStore());
+        $this->publish($store);
+        $store->forceFill([
+            'custom_domain' => 'mybrand.com',
+            'custom_domain_status' => CustomDomainService::VERIFIED,
+            'custom_domain_verified_at' => now(),
+        ])->save();
+
+        $this->get('http://mybrand.com/')->assertOk()->assertSee('__STORE__', false);
+        $this->get('http://www.mybrand.com/')->assertOk()->assertSee('__STORE__', false);
+        $this->get('http://127.0.0.1/internal/domain-check?domain=mybrand.com')->assertOk();
+        $this->get('http://127.0.0.1/internal/domain-check?domain=www.mybrand.com')->assertOk();
+
+        Artisan::call('domains:verified');
+        $this->assertSame("mybrand.com\n", Artisan::output());
+
+        $store->subscriptions()->where('status', 'active')->update(['status' => 'cancelled']);
+
+        $gone = $this->get('http://mybrand.com/');
+        $gone->assertOk();
+        $this->assertStringNotContainsString('__STORE__', $gone->getContent());
+        $www = $this->get('http://www.mybrand.com/');
+        $this->assertStringNotContainsString('__STORE__', $www->getContent());
+        $this->get('http://127.0.0.1/internal/domain-check?domain=mybrand.com')->assertNotFound();
+        $this->get('http://127.0.0.1/internal/domain-check?domain=www.mybrand.com')->assertNotFound();
+
+        Artisan::call('domains:verified');
+        $this->assertSame('', Artisan::output());
+    }
+
+    public function test_ask_endpoint_refuses_a_public_client_address(): void
+    {
+        $store = $this->grantCustomDomain($this->makeStore());
         $store->forceFill([
             'custom_domain' => 'mybrand.com',
             'custom_domain_status' => CustomDomainService::VERIFIED,
@@ -291,6 +365,29 @@ class CustomDomainTest extends TestCase
         $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.8'])
             ->get('http://127.0.0.1/internal/domain-check?domain=mybrand.com')
             ->assertForbidden();
+    }
+
+    private function grantCustomDomain(Store $store): Store
+    {
+        $plan = Plan::query()->where('is_active', true)->orderBy('sort_order')->get()
+            ->first(fn (Plan $plan) => $plan->has('custom_domain'));
+        $this->assertNotNull($plan);
+
+        return $this->assignPlan($store, $plan);
+    }
+
+    private function assignPlan(Store $store, Plan $plan): Store
+    {
+        $store->subscriptions()->where('status', 'active')->update(['status' => 'cancelled']);
+        Subscription::create([
+            'store_id' => $store->id,
+            'plan_id' => $plan->id,
+            'status' => 'active',
+            'source' => 'manual',
+            'started_at' => now(),
+        ]);
+
+        return $store->fresh();
     }
 
     private function makeStore(string $username = 'organicfood'): Store

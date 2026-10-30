@@ -2,6 +2,7 @@
 
 namespace App\Services\Platform;
 
+use App\Models\Plan;
 use App\Models\Store;
 
 /**
@@ -175,10 +176,56 @@ class CustomDomainService
             return null;
         }
 
-        return Store::query()
+        $store = Store::query()
             ->where('custom_domain', $apex)
             ->where('custom_domain_status', self::VERIFIED)
             ->first();
+
+        return $store && $this->allows($store) ? $store : null;
+    }
+
+    /** Same flag the plans page uses for নিজস্ব ডোমেইন. */
+    public function allows(Store $store): bool
+    {
+        return Entitlements::for($store)->feature('custom_domain');
+    }
+
+    /** @return list<string> Display names of active plans that include the feature. */
+    public function entitledPlanNames(): array
+    {
+        return Plan::query()
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->get()
+            ->filter(fn (Plan $plan) => $plan->has('custom_domain'))
+            ->pluck('name')
+            ->values()
+            ->all();
+    }
+
+    public function deniedMessage(): string
+    {
+        $names = $this->entitledPlanNames();
+
+        if ($names === []) {
+            return 'নিজস্ব ডোমেইন আপনার বর্তমান প্যাকেজে নেই।';
+        }
+
+        return 'নিজস্ব ডোমেইন '.$this->joinNames($names).' প্যাকেজে আছে। প্যাকেজ আপগ্রেড করলে নিজের ডোমেইন যুক্ত করতে পারবেন।';
+    }
+
+    /** @return list<string> */
+    public function verifiedDomainNames(): array
+    {
+        return Store::query()
+            ->where('custom_domain_status', self::VERIFIED)
+            ->whereNotNull('custom_domain')
+            ->orderBy('custom_domain')
+            ->get()
+            ->filter(fn (Store $store) => $this->allows($store))
+            ->pluck('custom_domain')
+            ->values()
+            ->all();
     }
 
     public function payload(Store $store): array
@@ -190,6 +237,8 @@ class CustomDomainService
             'free_host' => $freeHost,
             'base_domain' => $this->baseDomain(),
             'server_ip' => $ip,
+            'entitled' => $this->allows($store),
+            'upgrade_plans' => $this->entitledPlanNames(),
             'domain' => $store->custom_domain ? [
                 'host' => $store->custom_domain,
                 'status' => $store->custom_domain_status,
@@ -201,6 +250,18 @@ class CustomDomainService
                 ['type' => 'CNAME', 'host' => 'www', 'value' => $freeHost],
             ],
         ];
+    }
+
+    /** @param  list<string>  $names */
+    private function joinNames(array $names): string
+    {
+        if (count($names) === 1) {
+            return $names[0];
+        }
+
+        $last = array_pop($names);
+
+        return implode(', ', $names).' ও '.$last;
     }
 
     private function looksLikeDomain(string $domain): bool

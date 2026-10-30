@@ -1775,6 +1775,9 @@ a:hover { color: var(--brand-800); }
     gap: 0.7rem;
 }
 .dash-steps li::marker { color: var(--brand-700); font-weight: 700; }
+.dash-lock { display: grid; gap: 0.45rem; }
+.dash-lock p { margin: 0; }
+.dash-lock .btn { justify-self: start; }
 .dash-example {
     margin: 0.35rem 0 0;
     padding: 0.75rem 0.85rem;

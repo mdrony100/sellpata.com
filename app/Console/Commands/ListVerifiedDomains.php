@@ -2,7 +2,6 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Store;
 use App\Services\Platform\CustomDomainService;
 use Illuminate\Console\Command;
 
@@ -14,13 +13,7 @@ class ListVerifiedDomains extends Command
 
     public function handle(): int
     {
-        $domains = Store::query()
-            ->where('custom_domain_status', CustomDomainService::VERIFIED)
-            ->whereNotNull('custom_domain')
-            ->orderBy('custom_domain')
-            ->pluck('custom_domain');
-
-        foreach ($domains as $domain) {
+        foreach (app(CustomDomainService::class)->verifiedDomainNames() as $domain) {
             $this->output->writeln($domain);
         }
 

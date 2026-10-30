@@ -13,6 +13,8 @@ const confirmRemove = ref(false);
 let copyTimer;
 
 const domain = computed(() => info.value?.domain ?? null);
+const entitled = computed(() => info.value?.entitled === true);
+const planLabel = computed(() => joinBn(info.value?.upgrade_plans ?? []));
 const exampleName = computed(() => domain.value?.host || 'mybrand.com');
 const records = computed(() => info.value?.records ?? []);
 const statusMeta = computed(() => ({
@@ -108,6 +110,13 @@ async function copy(value, key) {
     }, 1600);
 }
 
+function joinBn(names) {
+    if (!names.length) return 'উচ্চতর';
+    if (names.length === 1) return names[0];
+    if (names.length === 2) return `${names[0]} ও ${names[1]}`;
+    return `${names.slice(0, -1).join(', ')} ও ${names[names.length - 1]}`;
+}
+
 function when(iso) {
     if (!iso) return '';
     return new Date(iso).toLocaleString('bn-BD', { dateStyle: 'medium', timeStyle: 'short' });
@@ -123,7 +132,8 @@ function when(iso) {
             <div>
                 <p class="dash-kicker">ডোমেইন</p>
                 <h2>কাস্টম ডোমেইন</h2>
-                <p class="dash-muted">ফ্রি ঠিকানা আগের মতোই চালু থাকবে। চাইলে নিজের ডোমেইন যুক্ত করতে পারেন — ক্রেতারা সেই ঠিকানাতেই স্টোর দেখবে।</p>
+                <p v-if="entitled" class="dash-muted">ফ্রি ঠিকানা আগের মতোই চালু থাকবে। চাইলে নিজের ডোমেইন যুক্ত করতে পারেন — ক্রেতারা সেই ঠিকানাতেই স্টোর দেখবে।</p>
+                <p v-else class="dash-muted">ফ্রি ঠিকানা আগের মতোই চালু থাকবে। নিজের ডোমেইন {{ planLabel }} প্যাকেজে যুক্ত করা যায়।</p>
             </div>
 
             <div>
@@ -137,7 +147,14 @@ function when(iso) {
                 </div>
             </div>
 
-            <form v-if="!domain" class="dash-stack" @submit.prevent="add">
+            <div v-if="!entitled" class="dash-note dash-lock" role="status">
+                <strong>নিজস্ব ডোমেইন {{ planLabel }} প্যাকেজে পাওয়া যায়।</strong>
+                <p>ফ্রি ঠিকানা এখনই চালু আছে। নিজের ডোমেইন যুক্ত করতে প্যাকেজ আপগ্রেড করুন।</p>
+                <p v-if="domain">যুক্ত আছে: {{ domain.host }} — আপগ্রেড না করা পর্যন্ত এই ঠিকানায় স্টোর খুলবে না।</p>
+                <RouterLink to="/dashboard/plans" class="btn btn--sm btn--primary">প্যাকেজ দেখুন</RouterLink>
+            </div>
+
+            <form v-if="!domain" class="dash-stack" @submit.prevent="entitled && add()">
                 <label class="dash-field">
                     <span>নিজের ডোমেইন</span>
                     <input
@@ -148,15 +165,16 @@ function when(iso) {
                         autocapitalize="off"
                         spellcheck="false"
                         placeholder="mybrand.com"
+                        :disabled="!entitled"
                     >
                 </label>
                 <p class="dash-muted">https:// বা শেষের পথ বাদ দিয়ে শুধু ডোমেইন লিখলেই হয়। যেমন mybrand.com।</p>
-                <button type="submit" class="btn btn--primary" :disabled="busy === 'add' || !input.trim()">
+                <button type="submit" class="btn btn--primary" :disabled="!entitled || busy === 'add' || !input.trim()">
                     {{ busy === 'add' ? 'যোগ হচ্ছে…' : 'ডোমেইন যোগ করুন' }}
                 </button>
             </form>
 
-            <div v-else class="dash-domainbar">
+            <div v-else-if="entitled" class="dash-domainbar">
                 <div class="dash-domainbar__main">
                     <div class="dash-hostline">
                         <strong>{{ domain.host }}</strong>

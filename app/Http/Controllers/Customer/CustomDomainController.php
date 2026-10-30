@@ -19,6 +19,11 @@ class CustomDomainController extends Controller
     public function store(Request $request, CustomDomainService $domains)
     {
         $store = $this->customerStore($request);
+
+        if (! $domains->allows($store)) {
+            return $this->denied($domains);
+        }
+
         $raw = (string) $request->input('domain', '');
         $normalized = $domains->normalize($raw);
 
@@ -61,6 +66,10 @@ class CustomDomainController extends Controller
     {
         $store = $this->customerStore($request);
 
+        if (! $domains->allows($store)) {
+            return $this->denied($domains);
+        }
+
         if (! $store->custom_domain) {
             return response()->json(['message' => 'আগে একটি ডোমেইন যোগ করুন।'], 422);
         }
@@ -92,6 +101,11 @@ class CustomDomainController extends Controller
         }
 
         return response()->json($domains->payload($store));
+    }
+
+    private function denied(CustomDomainService $domains)
+    {
+        return response()->json(['message' => $domains->deniedMessage()], 403);
     }
 
     private function customerStore(Request $request): Store
