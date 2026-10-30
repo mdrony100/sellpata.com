@@ -49,7 +49,7 @@ class AdminScreensTest extends TestCase
         [$customer] = $this->customer();
 
         $response = $this->actingAs($customer)->get('/admin/customers');
-        fwrite(STDERR, "STATUS=".$response->getStatusCode()."\n"); $this->assertContains($response->getStatusCode(), [302, 403], "customer must not reach the admin area");
+        $this->assertContains($response->getStatusCode(), [302, 403], "customer must not reach the admin area");
     }
 
     public function test_admin_can_suspend_a_store_with_a_reason(): void
