@@ -105,6 +105,7 @@
                                 </button>
                                 <button v-if="page.status === 'published' && !page.is_primary" type="button" class="btn btn--sm btn--ghost" @click="makePrimary(page)">মূল পেজ করুন</button>
                                 <a v-if="page.url" :href="page.url" target="_blank" rel="noopener" class="btn btn--sm btn--ghost">দেখুন</a>
+                                <button type="button" class="btn btn--sm btn--ghost" @click="editPage(page)">এডিট</button>
                                 <button type="button" class="btn btn--sm btn--ghost" @click="renamePage(page)">নাম/ঠিকানা</button>
                                 <button type="button" class="btn btn--sm btn--ghost" @click="duplicatePage(page)">কপি</button>
                                 <button type="button" class="btn btn--sm btn--ghost dash__danger" @click="deletePage(page)">মুছুন</button>
@@ -128,6 +129,7 @@
                         <option value="refunded">ফেরত</option>
                     </select>
                     <button type="submit" class="btn btn--sm btn--primary">খুঁজুন</button>
+                    <a v-if="me.store.features?.csv_export" href="/api/orders/export" class="btn btn--sm btn--ghost">CSV এক্সপোর্ট</a>
                 </form>
 
                 <p v-if="!orders.length" class="dash__muted">কোনো অর্ডার পাওয়া যায়নি।</p>
@@ -171,12 +173,24 @@
                             <li v-for="(on, key) in plan.features" :key="key" :class="{ off: !on }">{{ featureLabel(key) }}</li>
                         </ul>
                         <button v-if="plan.current" type="button" class="btn btn--sm btn--ghost" disabled>চালু আছে</button>
+                        <button v-else-if="plan.slug === 'free'" type="button" class="btn btn--sm btn--primary" @click="downgradeToFree(plan)">ফ্রি প্ল্যানে নামুন</button>
                         <button v-else type="button" class="btn btn--sm btn--primary" @click="requestPlan(plan)">
                             {{ plan.purchasable ? 'প্ল্যান নিন' : 'যোগাযোগ করুন' }}
                         </button>
                     </article>
                 </div>
                 <p v-if="planMessage" class="dash__notice">{{ planMessage }}</p>
+
+                <div v-if="downgrade" class="dash__notice">
+                    <p><strong>{{ downgrade.message }}</strong></p>
+                    <label v-for="page in downgrade.published" :key="page.id" style="display:flex;gap:6px;align-items:center">
+                        <input type="checkbox" :value="page.id" v-model="downgrade.selected">
+                        {{ page.title }} <span v-if="page.is_primary" class="dash__badge">মূল পেজ</span>
+                    </label>
+                    <button type="button" class="btn btn--sm btn--primary" :disabled="downgrade.selected.length !== downgrade.required" @click="confirmDowngrade">
+                        সংরক্ষণ করুন ({{ downgrade.selected.length }}/{{ downgrade.required }})
+                    </button>
+                </div>
             </section>
 
             <section v-else-if="tab === 'billing'" class="dash__body">
@@ -242,6 +256,7 @@ const usernameSaved = ref(false);
 const savingStore = ref(false);
 const pageNotice = ref('');
 const planMessage = ref('');
+const downgrade = ref(null);
 const profileMessage = ref('');
 const savingProfile = ref(false);
 const filters = reactive({ q: '', status: '', payment_status: '' });
@@ -377,6 +392,15 @@ async function makePrimary(page) {
     await loadPages();
 }
 
+async function editPage(page) {
+    try {
+        const data = await api(`/api/pages/${page.id}/edit`, { method: 'POST' });
+        await router.push(`/builder/${data.public_id}?mode=page`);
+    } catch (error) {
+        pageNotice.value = error.data?.message ?? 'এডিটর খোলা যায়নি।';
+    }
+}
+
 async function duplicatePage(page) {
     try {
         await api(`/api/pages/${page.id}/duplicate`, { method: 'POST' });
@@ -412,6 +436,34 @@ async function renamePage(page) {
 async function updateOrder(order, patch) {
     await api(`/api/orders/${order.id}`, { method: 'PATCH', body: patch });
     await loadOrders();
+}
+
+async function downgradeToFree(plan) {
+    planMessage.value = '';
+    const data = await api(`/api/plans/${plan.slug}/downgrade`, { method: 'POST', body: {} });
+    if (data.ok) {
+        planMessage.value = data.message ?? 'ফ্রি প্ল্যানে নামানো হয়েছে।';
+        downgrade.value = null;
+        await loadMe();
+        await loadPages();
+        return;
+    }
+    if (data.code === 'choose_pages') {
+        downgrade.value = { ...data, planSlug: plan.slug, selected: data.published.filter((p) => p.is_primary).map((p) => p.id) };
+        return;
+    }
+    planMessage.value = data.message ?? '';
+}
+
+async function confirmDowngrade() {
+    const data = await api(`/api/plans/${downgrade.value.planSlug}/downgrade`, {
+        method: 'POST',
+        body: { page_ids: downgrade.value.selected },
+    });
+    planMessage.value = data.message ?? '';
+    downgrade.value = null;
+    await loadMe();
+    await loadPages();
 }
 
 async function requestPlan(plan) {

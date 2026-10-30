@@ -321,6 +321,12 @@ function clearImage(field) {
 async function publish() {
     error.value = '';
 
+    // Editing a page you already own: no phone claim, just republish.
+    if (route.query.mode === 'page') {
+        await republishPage();
+        return;
+    }
+
     const missing = schema.value.find((field) => field.required && !String(valueAt(field.key) ?? '').trim());
 
     if (missing) {
@@ -338,6 +344,21 @@ async function publish() {
 
     claimStep.value = 'phone';
     phoneOpen.value = true;
+}
+
+async function republishPage() {
+    const saved = await draftApi.flush();
+    if (!saved) {
+        error.value = 'সব পরিবর্তন সংরক্ষণ করা যায়নি। আবার চেষ্টা করুন।';
+        return;
+    }
+
+    try {
+        await api('/api/pages', { method: 'POST', body: { draft_id: draft.value.id } });
+        await router.push({ path: '/dashboard/pages', query: { published: 1 } });
+    } catch (e) {
+        await router.push({ path: '/dashboard/pages', query: { notice: e.data?.message ?? '' } });
+    }
 }
 
 async function sendOtp() {

@@ -89,6 +89,7 @@ Route::prefix('api')->middleware('auth')->group(function () {
     Route::get('/pages', [PageController::class, 'index']);
     Route::post('/pages', [PageController::class, 'fromDraft']);
     Route::patch('/pages/{page}', [PageController::class, 'update']);
+    Route::post('/pages/{page}/edit', [PageController::class, 'edit']);
     Route::post('/pages/{page}/publish', [PageController::class, 'publish']);
     Route::post('/pages/{page}/unpublish', [PageController::class, 'unpublish']);
     Route::post('/pages/{page}/primary', [PageController::class, 'primary']);
@@ -96,12 +97,14 @@ Route::prefix('api')->middleware('auth')->group(function () {
     Route::delete('/pages/{page}', [PageController::class, 'destroy']);
 
     Route::get('/orders', [CustomerOrderController::class, 'index']);
+    Route::get('/orders/export', [CustomerOrderController::class, 'export']);
     Route::get('/orders/{order}', [CustomerOrderController::class, 'show']);
     Route::patch('/orders/{order}', [CustomerOrderController::class, 'update']);
     Route::get('/orders/{order}/invoice', [CustomerOrderController::class, 'invoice']);
 
     Route::get('/plans', [BillingController::class, 'plans']);
-    Route::post('/plans/{plan}/request', [BillingController::class, 'request']);
+    Route::post('/plans/{plan:slug}/downgrade', [BillingController::class, 'downgrade']);
+    Route::post('/plans/{plan:slug}/request', [BillingController::class, 'request']);
     Route::get('/invoices', [BillingController::class, 'invoices']);
     Route::get('/invoices/{invoice}/download', [BillingController::class, 'download']);
 

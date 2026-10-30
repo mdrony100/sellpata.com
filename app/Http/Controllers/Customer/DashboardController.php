@@ -31,6 +31,7 @@ class DashboardController extends Controller
                 'delivery_charge_enabled' => $store->delivery_charge_enabled,
                 'contact_phone' => $store->contact_phone,
                 'contact_email' => $store->contact_email,
+                'features' => $store->plan()->features ?? [],
             ] : null,
             'impersonation' => $impersonation,
         ]);

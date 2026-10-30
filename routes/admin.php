@@ -47,6 +47,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('plans', [\App\Http\Controllers\Admin\PlanController::class, 'pageIndex'])->name('plans.index');
         Route::patch('plans/{plan}', [\App\Http\Controllers\Admin\PlanController::class, 'update'])->name('plans.update');
 
+        Route::get('audit', [\App\Http\Controllers\Admin\AuditLogController::class, 'index'])->name('audit.index');
+
         Route::post('impersonate/{user}', [\App\Http\Controllers\Admin\ImpersonationController::class, 'start'])->name('impersonate.start');
         Route::post('impersonate-stop', [\App\Http\Controllers\Admin\ImpersonationController::class, 'stop'])->name('impersonate.stop');
     

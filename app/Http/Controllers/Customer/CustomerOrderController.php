@@ -129,6 +129,38 @@ class CustomerOrderController extends Controller
         return response()->json(['ok' => true, 'order' => $this->payload($order->fresh('items'))]);
     }
 
+    /** Order export, limited to plans that include it. */
+    public function export(Request $request)
+    {
+        $store = $this->store($request);
+
+        abort_unless(\App\Services\Platform\Entitlements::for($store)->feature('csv_export'), 403, 'আপনার প্ল্যানে CSV এক্সপোর্ট নেই।');
+
+        $orders = Order::where('store_id', $store->id)->with('items')->latest()->get();
+
+        return response()->streamDownload(function () use ($orders) {
+            $out = fopen('php://output', 'w');
+            fwrite($out, "\xEF\xBB\xBF"); // Excel needs the BOM for Bengali
+            fputcsv($out, ['অর্ডার', 'তারিখ', 'ক্রেতা', 'মোবাইল', 'ঠিকানা', 'পণ্য', 'মোট', 'অবস্থা', 'পেমেন্ট']);
+
+            foreach ($orders as $order) {
+                fputcsv($out, [
+                    $order->reference,
+                    $order->created_at->format('Y-m-d H:i'),
+                    $order->customer_name,
+                    $order->customer_phone,
+                    $order->address,
+                    $order->items->map(fn ($i) => $i->name.' × '.$i->quantity)->implode(', '),
+                    $order->total,
+                    $order->status,
+                    $order->payment_status,
+                ]);
+            }
+
+            fclose($out);
+        }, 'orders-'.$store->username.'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
     public function invoice(Request $request, Order $order, InvoiceService $invoices)
     {
         $order = $this->owned($request, $order);

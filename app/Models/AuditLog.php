@@ -10,6 +10,11 @@ class AuditLog extends Model
 
     protected $casts = ['meta' => 'array'];
 
+    public function actor(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(User::class, 'actor_id');
+    }
+
     public static function record(string $action, ?Model $subject = null, array $meta = [], ?int $actorId = null): self
     {
         return static::create([

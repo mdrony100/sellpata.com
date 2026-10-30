@@ -11,7 +11,7 @@ class Draft extends Model
 {
     protected $fillable = [
         'public_id', 'builder_template_id', 'user_id', 'anonymous_identity_id',
-        'title', 'content', 'revision', 'status', 'claimed_at', 'last_saved_at',
+        'title', 'content', 'revision', 'status', 'claimed_at', 'last_saved_at', 'page_id',
     ];
 
     protected $casts = [

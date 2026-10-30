@@ -42,6 +42,7 @@ class AdminScreensTest extends TestCase
         $this->actingAs($admin)->get('/admin/customers/'.$customer->id)->assertOk()->assertSee('প্ল্যান নির্ধারণ');
         $this->actingAs($admin)->get('/admin/orders')->assertOk()->assertSee('সব অর্ডার');
         $this->actingAs($admin)->get('/admin/plans')->assertOk()->assertSee('প্যাকেজ ও সীমা');
+        $this->actingAs($admin)->get('/admin/audit')->assertOk()->assertSee('অডিট ও মনিটরিং');
     }
 
     public function test_customers_cannot_open_admin_screens(): void

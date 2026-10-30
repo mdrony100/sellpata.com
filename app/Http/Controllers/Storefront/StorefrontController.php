@@ -30,6 +30,16 @@ class StorefrontController extends Controller
             ? $model->pages()->where('slug', $slug)->where('status', 'published')->first()
             : $model->primaryPage();
 
+        // An old slug still lands on the page it used to point at.
+        if (! $page && $slug) {
+            $redirect = \App\Models\PageRedirect::where('store_id', $model->id)->where('slug', $slug)->first();
+            $target = $redirect ? $model->pages()->whereKey($redirect->page_id)->where('status', 'published')->first() : null;
+
+            if ($target) {
+                return redirect()->to($model->publicUrl($target), 301);
+            }
+        }
+
         if (! $page || ! $page->liveContent()) {
             return response()->view('storefront-missing', ['store' => $model], 404);
         }

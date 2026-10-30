@@ -62,7 +62,7 @@ class Store extends Model
 
     public function publicUrl(?Page $page = null): string
     {
-        $base = config('sellpata.base_domain');
+        $base = config('platform.base_domain') ?: 'sellpata.com';
         $host = $this->username_lower.'.'.$base;
 
         return $page && ! $page->is_primary

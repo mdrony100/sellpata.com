@@ -60,6 +60,10 @@ class PageController extends Controller
         $draft = Draft::findOrFail($data['draft_id']);
         abort_unless($draft->user_id === $request->user()->id, 404);
 
+        if ($draft->page_id) {
+            return $this->applyDraftToPage($request, $store, $draft);
+        }
+
         if ($existing = $store->pages()->where('draft_id', $draft->id)->first()) {
             return response()->json(['ok' => true, 'page_id' => $existing->id, 'duplicate' => true]);
         }
@@ -127,6 +131,10 @@ class PageController extends Controller
                 return response()->json(['message' => 'এই ঠিকানাটি ইতিমধ্যে ব্যবহৃত।', 'errors' => ['slug' => ['অন্য ঠিকানা বেছে নিন।']]], 422);
             }
             if ($page->status === 'published') {
+                \App\Models\PageRedirect::updateOrCreate(
+                    ['store_id' => $page->store_id, 'slug' => $page->slug],
+                    ['page_id' => $page->id]
+                );
                 AuditLog::record('page.slug_changed', $page, ['from' => $page->slug, 'to' => $slug], $request->user()->id);
             }
             $page->slug = $slug;
@@ -135,6 +143,27 @@ class PageController extends Controller
         $page->save();
 
         return response()->json(['ok' => true, 'page' => ['id' => $page->id, 'title' => $page->title, 'slug' => $page->slug, 'revision' => $page->revision]]);
+    }
+
+    /** Hands an existing page to the builder without touching the live version. */
+    public function edit(Request $request, Page $page)
+    {
+        $page = $this->owned($request, $page);
+
+        $draft = \App\Models\Draft::create([
+            'public_id' => (string) \Illuminate\Support\Str::uuid(),
+            'builder_template_id' => $page->template_id,
+            'user_id' => $request->user()->id,
+            'page_id' => $page->id,
+            'title' => $page->title,
+            'content' => $page->content,
+            'revision' => $page->revision,
+            'status' => 'active',
+            'claimed_at' => now(),
+            'last_saved_at' => now(),
+        ]);
+
+        return response()->json(['ok' => true, 'public_id' => $draft->public_id, 'page_id' => $page->id]);
     }
 
     public function publish(Request $request, Page $page)
@@ -238,6 +267,46 @@ class PageController extends Controller
         $page->delete(); // orders and invoices keep their own snapshots
 
         return response()->json(['ok' => true]);
+    }
+
+    /** Publishes the builder's working copy onto its page, never a new one. */
+    private function applyDraftToPage(Request $request, $store, \App\Models\Draft $draft)
+    {
+        $page = $store->pages()->whereKey($draft->page_id)->first();
+
+        if (! $page) {
+            return response()->json(['message' => 'পেজটি পাওয়া যায়নি।'], 404);
+        }
+
+        $max = Entitlements::for($store)->maxPages();
+        $published = $store->pages()->where('status', 'published')->count();
+
+        if ($page->status !== 'published' && $published >= $max) {
+            return response()->json(['message' => 'আপনার প্ল্যানের পেজের সীমা শেষ।', 'code' => 'page_limit'], 422);
+        }
+
+        DB::transaction(function () use ($page, $draft, $request) {
+            $page->forceFill([
+                'content' => $draft->content,
+                'revision' => $page->revision + 1,
+                'status' => 'published',
+                'published_content' => $draft->content,
+                'published_at' => now(),
+            ])->save();
+
+            if (! $page->store->pages()->where('is_primary', true)->where('status', 'published')->exists()) {
+                $page->forceFill(['is_primary' => true])->save();
+            }
+
+            AuditLog::record('page.republished', $page, ['draft' => $draft->public_id], $request->user()->id);
+        });
+
+        return response()->json([
+            'ok' => true,
+            'page_id' => $page->id,
+            'url' => $store->publicUrl($page->fresh()),
+            'updated' => true,
+        ]);
     }
 
     private function uniqueSlug($store, string $base): string

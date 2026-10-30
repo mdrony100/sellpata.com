@@ -55,6 +55,71 @@ class BillingController extends Controller
         ], 200);
     }
 
+    /**
+     * Dropping to the Free plan needs no billing, so the customer can do it
+     * themselves. Choosing which pages stay active is mandatory above the limit.
+     */
+    public function downgrade(Request $request, Plan $plan)
+    {
+        $store = $request->user()->store;
+        abort_if($store === null, 409);
+
+        if ($plan->slug !== Plan::FREE) {
+            return response()->json([
+                'ok' => false,
+                'code' => 'contact',
+                'message' => 'প্ল্যান পরিবর্তনের জন্য যোগাযোগ করুন। পেমেন্ট ব্যবস্থা চালু হলে এখান থেকেই করা যাবে।',
+            ], 200);
+        }
+
+        $data = $request->validate(['page_ids' => ['array'], 'page_ids.*' => ['integer']]);
+        $keepIds = $data['page_ids'] ?? [];
+
+        $published = $store->pages()->where('status', 'published')->get();
+
+        if ($published->count() > $plan->max_pages) {
+            $keep = $published->whereIn('id', $keepIds);
+
+            if ($keep->count() !== $plan->max_pages) {
+                return response()->json([
+                    'ok' => false,
+                    'code' => 'choose_pages',
+                    'message' => "ফ্রি প্ল্যানে {$plan->max_pages}টি পেজ সক্রিয় রাখা যাবে। কোন পেজগুলো রাখবেন বেছে নিন।",
+                    'published' => $published->map(fn ($p) => ['id' => $p->id, 'title' => $p->title, 'is_primary' => $p->is_primary]),
+                    'required' => $plan->max_pages,
+                ], 422);
+            }
+
+            foreach ($published as $page) {
+                if (! $keep->contains('id', $page->id)) {
+                    $page->forceFill(['status' => 'draft', 'is_primary' => false])->save();
+                }
+            }
+
+            if (! $keep->contains(fn ($p) => $p->is_primary)) {
+                $store->pages()->where('is_primary', true)->update(['is_primary' => false]);
+                $keep->first()->forceFill(['is_primary' => true])->save();
+            }
+        }
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($store, $plan, $request, $published) {
+            $store->subscriptions()->where('status', 'active')->update(['status' => 'cancelled']);
+
+            \App\Models\Subscription::create([
+                'store_id' => $store->id,
+                'plan_id' => $plan->id,
+                'status' => 'active',
+                'source' => 'free',
+                'started_at' => now(),
+                'note' => 'গ্রাহক নিজে ফ্রি প্ল্যানে নেমেছেন',
+            ]);
+
+            AuditLog::record('plan.downgraded', $store, ['plan' => $plan->slug, 'unpublished' => $published->count()], $request->user()->id);
+        });
+
+        return response()->json(['ok' => true, 'message' => 'আপনি এখন ফ্রি প্ল্যানে আছেন। বন্ধ করা পেজগুলোর কনটেন্ট সংরক্ষিত আছে।']);
+    }
+
     public function invoices(Request $request)
     {
         $store = $request->user()->store;
