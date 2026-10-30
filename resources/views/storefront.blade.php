@@ -8,7 +8,7 @@
     <meta name="description" content="{{ \Illuminate\Support\Str::limit(strip_tags($bootstrap['content']['hero']['subline'] ?? ''), 150) }}">
     <link rel="canonical" href="{{ $bootstrap['page']['url'] }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Anek+Bangla:wght@500;700;800&family=Hind+Siliguri:wght@400;500;600;700&family=Noto+Serif+Bengali:wght@500;700&display=swap" rel="stylesheet">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body>

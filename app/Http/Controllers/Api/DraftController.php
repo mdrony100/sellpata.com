@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BuilderTemplate;
 use App\Models\Draft;
 use App\Models\DraftMedia;
+use App\Support\Landing\ThemeCatalog;
 use App\Support\VisitorIdentity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
@@ -14,7 +15,11 @@ use Illuminate\Validation\ValidationException;
 class DraftController extends Controller
 {
     /** Content keys a draft may contain. Anything else is dropped server-side. */
-    private const ALLOWED = ['brand', 'hero', 'product', 'cta', 'delivery', 'contact', 'features', 'faq', 'sections'];
+    private const ALLOWED = [
+        'brand', 'hero', 'product', 'cta', 'delivery', 'contact', 'features', 'faq', 'sections',
+        'benefits', 'gallery', 'reviews', 'variants', 'bundles', 'policies', 'details',
+        'section_order', 'selection', 'headings', 'offer', 'tracking',
+    ];
 
     public function store(Request $request)
     {
@@ -68,6 +73,47 @@ class DraftController extends Controller
                 'category' => $draft->template->category?->label,
             ],
             'media' => $this->mediaPayload($draft),
+            'themes' => $this->themeChoices(),
+        ]);
+    }
+
+    /** Switch presentation. Compatible copy stays; hero mode and section order follow the new theme. */
+    public function switchTheme(Request $request, string $publicId)
+    {
+        $draft = $this->authorize($request, $publicId);
+
+        $data = $request->validate([
+            'template_id' => ['required', 'integer', 'exists:builder_templates,id'],
+            'confirm' => ['required', 'accepted'],
+        ]);
+
+        $next = BuilderTemplate::where('is_published', true)->findOrFail($data['template_id']);
+        abort_unless(ThemeCatalog::isLanding($next->design), 422, 'এই ডিজাইনে বদলানো যায় না।');
+
+        $merged = ThemeCatalog::mergeContent($draft->content ?? [], $next->content ?? []);
+
+        $draft->forceFill([
+            'builder_template_id' => $next->id,
+            'content' => $this->sanitize($merged),
+            'revision' => $draft->revision + 1,
+            'title' => $next->name,
+            'last_saved_at' => now(),
+        ])->save();
+
+        $draft->unsetRelation('template');
+
+        return response()->json([
+            'saved' => true,
+            'draft' => $this->payload($draft->fresh()),
+            'template' => [
+                'id' => $next->id,
+                'name' => $next->name,
+                'slug' => $next->slug,
+                'design' => $next->design,
+                'schema' => $next->schema,
+                'category' => $next->category?->label,
+            ],
+            'themes' => $this->themeChoices(),
         ]);
     }
 
@@ -128,7 +174,26 @@ class DraftController extends Controller
 
     private function sanitize(array $content): array
     {
-        return array_intersect_key($content, array_flip(self::ALLOWED));
+        $content = array_intersect_key($content, array_flip(self::ALLOWED));
+
+        return ThemeCatalog::constrain($content);
+    }
+
+    private function themeChoices(): array
+    {
+        return BuilderTemplate::query()
+            ->whereIn('design', ThemeCatalog::DESIGNS)
+            ->where('is_published', true)
+            ->orderBy('sort_order')
+            ->get(['id', 'name', 'slug', 'design', 'tagline'])
+            ->map(fn (BuilderTemplate $theme) => [
+                'id' => $theme->id,
+                'name' => $theme->name,
+                'slug' => $theme->slug,
+                'design' => $theme->design,
+                'tagline' => $theme->tagline,
+            ])
+            ->all();
     }
 
     private function payload(Draft $draft): array

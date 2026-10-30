@@ -7,6 +7,7 @@ use App\Models\AuditLog;
 use App\Models\Draft;
 use App\Models\Page;
 use App\Services\Platform\Entitlements;
+use App\Services\Platform\PageMedia;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -81,7 +82,7 @@ class PageController extends Controller
         $title = $content['product']['name'] ?? $content['brand']['name'] ?? $template->name;
 
         $page = DB::transaction(function () use ($store, $draft, $template, $content, $title) {
-            return Page::create([
+            $page = Page::create([
                 'store_id' => $store->id,
                 'draft_id' => $draft->id,
                 'template_id' => $template->id,
@@ -91,6 +92,13 @@ class PageController extends Controller
                 'content' => $content,
                 'revision' => 1,
             ]);
+
+            $withMedia = PageMedia::mergeIntoContent($content, $draft, $page->id);
+            if ($withMedia !== $content) {
+                $page->forceFill(['content' => $withMedia])->save();
+            }
+
+            return $page;
         });
 
         AuditLog::record('page.created', $page, ['draft_id' => $draft->id], $request->user()->id);
@@ -178,9 +186,15 @@ class PageController extends Controller
         }
 
         DB::transaction(function () use ($page, $store, $request) {
+            $content = $page->content;
+            if ($page->draft_id) {
+                $content = PageMedia::mergeIntoContent($content, \App\Models\Draft::find($page->draft_id), $page->id);
+            }
+
             $page->forceFill([
+                'content' => $content,
                 'status' => 'published',
-                'published_content' => $page->content,
+                'published_content' => $content,
                 'published_at' => now(),
             ])->save();
 
@@ -286,11 +300,14 @@ class PageController extends Controller
         }
 
         DB::transaction(function () use ($page, $draft, $request) {
+            $content = PageMedia::mergeIntoContent($draft->content ?? [], $draft, $page->id);
+
             $page->forceFill([
-                'content' => $draft->content,
+                'template_id' => $draft->builder_template_id,
+                'content' => $content,
                 'revision' => $page->revision + 1,
                 'status' => 'published',
-                'published_content' => $draft->content,
+                'published_content' => $content,
                 'published_at' => now(),
             ])->save();
 

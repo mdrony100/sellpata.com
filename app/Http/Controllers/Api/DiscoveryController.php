@@ -43,7 +43,11 @@ class DiscoveryController extends Controller
 
         if ($activeCategory) {
             $ids = $activeCategory->children()->pluck('id')->push($activeCategory->id);
-            $templatesQuery->whereIn('category_id', $ids);
+            $slug = $activeCategory->slug;
+            $templatesQuery->where(function ($q) use ($ids, $slug) {
+                $q->whereIn('category_id', $ids)
+                    ->orWhereJsonContains('suitable_for', $slug);
+            });
         }
 
         if ($query !== '') {
@@ -74,6 +78,9 @@ class DiscoveryController extends Controller
             'design' => $template->design,
             'tagline' => $template->tagline,
             'thumbnail' => $template->thumbnail,
+            'preview' => $template->preview,
+            'theme_version' => $template->theme_version,
+            'suitable_for' => $template->suitable_for ?? [],
             'category' => $template->category?->label,
             'category_slug' => $template->category?->slug,
             'group' => $template->category?->parent?->label ?? $template->category?->label,

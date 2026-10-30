@@ -28,6 +28,15 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    /*
+    | Online checkout stays hidden until a real driver and secret exist.
+    | A plan flag alone is not enough to show a payment button.
+    */
+    'sellpata_payments' => [
+        'driver' => env('SELLPATA_PAYMENT_DRIVER'),
+        'key' => env('SELLPATA_PAYMENT_KEY'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

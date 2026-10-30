@@ -64,6 +64,7 @@ Route::prefix('api')->middleware('visitor')->group(function () {
     Route::post('/drafts', [DraftController::class, 'store'])->name('api.drafts.store');
     Route::get('/drafts/{publicId}', [DraftController::class, 'show'])->name('api.drafts.show');
     Route::patch('/drafts/{publicId}', [DraftController::class, 'update'])->name('api.drafts.update');
+    Route::post('/drafts/{publicId}/switch-theme', [DraftController::class, 'switchTheme'])->name('api.drafts.switch-theme');
 
     Route::post('/drafts/{publicId}/media', [DraftMediaController::class, 'store'])->name('api.drafts.media.store');
     Route::post('/drafts/{publicId}/otp', [OtpController::class, 'send'])->name('api.otp.send');

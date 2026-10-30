@@ -1,8 +1,8 @@
 <template>
     <div class="sf">
-        <TemplateRender :design="payload.design" :content="payload.content" />
+        <TemplateRender :design="payload.design" :content="payload.content" :checkout="checkoutPayload" />
 
-        <section class="sf__order" id="order">
+        <section v-if="!isLanding" class="sf__order" id="order">
             <div class="sf__order-inner">
                 <h2>অর্ডার করতে ফর্মটি পূরণ করুন</h2>
                 <p class="sf__muted">ক্যাশ অন ডেলিভারি — পণ্য হাতে পেয়ে টাকা পরিশোধ করুন।</p>
@@ -43,7 +43,7 @@
             </div>
         </section>
 
-        <footer v-if="!payload.features?.remove_branding" class="sf__foot">
+        <footer v-if="!isLanding && !payload.features?.remove_branding" class="sf__foot">
             <span>{{ payload.store.name }}</span>
             <a href="https://sellpata.com" rel="noopener">SellPata দিয়ে তৈরি</a>
         </footer>
@@ -51,10 +51,24 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import TemplateRender from '../components/builder/TemplateRender.vue';
+import { isLandingDesign } from '../landing/helpers';
 
 const props = defineProps({ payload: { type: Object, required: true } });
+const isLanding = computed(() => isLandingDesign(props.payload.design));
+const checkoutPayload = computed(() => ({
+    live: true,
+    endpoint: props.payload.order_endpoint,
+    payments: props.payload.checkout?.payments || [],
+    courier: props.payload.checkout?.courier === true,
+    tracking: props.payload.checkout?.tracking || {},
+    delivery: props.payload.delivery,
+    features: props.payload.features || {},
+    storePhone: props.payload.store?.phone || '',
+}));
+
+onMounted(() => installTracking(props.payload.checkout?.tracking));
 
 const bengaliDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
 const fmt = (n) => Number(n || 0).toLocaleString('en-IN');
@@ -114,5 +128,32 @@ async function submitOrder() {
 function resetForm() {
     done.value = null;
     Object.assign(form, { customer_name: '', customer_phone: '', address: '', city: '', area: '', note: '', quantity: 1 });
+}
+
+function installTracking(tracking) {
+    const meta = tracking?.meta;
+    const ga = tracking?.ga4;
+    if (meta && !document.getElementById('sp-meta')) {
+        const script = document.createElement('script');
+        script.id = 'sp-meta';
+        script.src = 'https://connect.facebook.net/en_US/fbevents.js';
+        script.async = true;
+        script.onload = () => {
+            window.fbq?.('init', meta);
+            window.fbq?.('track', 'PageView');
+        };
+        const boot = document.createElement('script');
+        boot.text = 'window.fbq=window.fbq||function(){(window.fbq.q=window.fbq.q||[]).push(arguments)};window.fbq.l=+new Date;';
+        document.head.append(boot, script);
+    }
+    if (ga && !document.getElementById('sp-ga')) {
+        const script = document.createElement('script');
+        script.id = 'sp-ga';
+        script.async = true;
+        script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(ga)}`;
+        const boot = document.createElement('script');
+        boot.text = `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config',${JSON.stringify(ga)});`;
+        document.head.append(script, boot);
+    }
 }
 </script>

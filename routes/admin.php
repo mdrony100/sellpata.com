@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\MessageController;
 use App\Http\Controllers\Admin\ReviewController;
 use App\Http\Controllers\Admin\SettingController;
 use App\Http\Controllers\Admin\StepController;
+use App\Http\Controllers\Admin\LandingThemeController;
 use App\Http\Controllers\Admin\TemplateController;
 use Illuminate\Support\Facades\Route;
 
@@ -24,6 +25,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         Route::resource('categories', CategoryController::class)->except(['show', 'create', 'edit']);
         Route::resource('templates', TemplateController::class)->except(['show', 'create', 'edit']);
+        Route::get('landing-themes', [LandingThemeController::class, 'index'])->name('landing-themes.index');
+        Route::put('landing-themes/{landingTheme}', [LandingThemeController::class, 'update'])->name('landing-themes.update');
         Route::resource('benefits', BenefitController::class)->except(['show', 'create', 'edit']);
         Route::resource('steps', StepController::class)->except(['show', 'create', 'edit']);
         Route::resource('clients', ClientController::class)->except(['show', 'create', 'edit']);
