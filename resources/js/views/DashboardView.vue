@@ -486,9 +486,13 @@
                         <label class="dash-field"><span>স্টোরের নাম</span><input v-model="profile.store_name" type="text"></label>
                         <label class="dash-field"><span>যোগাযোগের নম্বর</span><input v-model="profile.contact_phone" type="tel" inputmode="tel"></label>
                         <label class="dash-field"><span>ডেলিভারি চার্জ (৳)</span><input v-model.number="profile.delivery_charge" type="number" min="0"></label>
-                        <p class="dash-muted">স্টোরের ঠিকানা: {{ me.store.username }}.sellpata.com — প্রকাশের পর এটি নিজে বদলানো যায় না।</p>
+                        <p class="dash-muted">স্টোরের ঠিকানা: {{ me.store.username }}.sellpata.com — প্রকাশের পর এটি নিজে বদলানো যায় না। <RouterLink to="/dashboard/settings">নিজের ডোমেইন সেটিংস থেকে যোগ করুন।</RouterLink></p>
                     </div>
                 </form>
+            </section>
+
+            <section v-else-if="tab === 'settings'" class="dash-stack">
+                <CustomDomainSettings />
             </section>
 
             <section v-else class="dash-panel">
@@ -505,6 +509,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '../lib/api';
+import CustomDomainSettings from '../components/dashboard/CustomDomainSettings.vue';
 import DashIcon from '../components/dashboard/DashIcon.vue';
 import DashboardShell from '../components/dashboard/DashboardShell.vue';
 import EmptyState from '../components/dashboard/EmptyState.vue';
@@ -568,12 +573,14 @@ const sections = [
     { key: 'profile', label: 'প্রোফাইল', icon: 'profile', title: 'প্রোফাইল', subtitle: 'স্টোরের নাম, যোগাযোগ ও ডেলিভারি চার্জ আপডেট করুন।' },
     { key: 'downloads', label: 'ডাউনলোড', icon: 'download', title: 'ডাউনলোড', subtitle: 'ইনভয়েস ও অর্ডারের এক্সপোর্ট ফাইল এক জায়গায়।' },
     { key: 'billing', label: 'লেনদেন ও ইনভয়েস', icon: 'billing', title: 'লেনদেন ও ইনভয়েস', subtitle: 'সাবস্ক্রিপশন এবং পেমেন্টের ইনভয়েস।' },
+    { key: 'settings', label: 'সেটিংস', icon: 'settings', title: 'সেটিংস', subtitle: 'ফ্রি ঠিকানা থাকবে। চাইলে নিজের ডোমেইন যুক্ত করে ক্রেতাকে সেখানে আনুন।' },
 ];
 
 const navGroups = [
     { label: '', items: sections.filter((item) => item.key === 'overview') },
     { label: 'স্টোর', items: sections.filter((item) => ['pages', 'orders'].includes(item.key)) },
     { label: 'অ্যাকাউন্ট', items: sections.filter((item) => ['plans', 'profile', 'downloads', 'billing'].includes(item.key)) },
+    { label: '', items: sections.filter((item) => item.key === 'settings') },
 ];
 
 const currentSection = computed(() => sections.find((item) => item.key === tab.value));

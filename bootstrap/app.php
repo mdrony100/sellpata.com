@@ -1,5 +1,8 @@
 <?php
 
+use App\Http\Middleware\EnsureUserIsAdmin;
+use App\Http\Middleware\ResolveVisitorIdentity;
+use App\Http\Middleware\ServeCustomDomainStorefront;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -18,9 +21,13 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->encryptCookies(except: ['sp_visitor']);
 
         $middleware->alias([
-            'admin' => \App\Http\Middleware\EnsureUserIsAdmin::class,
-            'visitor' => \App\Http\Middleware\ResolveVisitorIdentity::class,
+            'admin' => EnsureUserIsAdmin::class,
+            'visitor' => ResolveVisitorIdentity::class,
         ]);
+
+        // After the session starts, so a verified custom domain can render the
+        // storefront (including its CSRF token) without taking over other hosts.
+        $middleware->appendToGroup('web', ServeCustomDomainStorefront::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

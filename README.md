@@ -107,6 +107,24 @@ schedule. Until a command is added, run a periodic cleanup of
 `anonymous_identities` past `expires_at` together with unclaimed drafts and
 `storage/app/private/drafts/*`.
 
+### Custom domain
+
+Customers connect one domain from **ড্যাশবোর্ড → সেটিংস**. The free
+`{username}.sellpata.com` address stays. DNS is checked on demand
+(`A` on `@` to `PLATFORM_SERVER_IP`, or `CNAME` `www` to the free host).
+Only a **verified** domain on a plan that includes the `custom_domain` entitlement (নিজস্ব ডোমেইন — Growth and Business) serves that store. A downgrade stops the custom host immediately.
+
+| Piece | Contract |
+| --- | --- |
+| `PLATFORM_BASE_DOMAIN` | platform zone, default `sellpata.com` |
+| `PLATFORM_SERVER_IP` | A-record target, default `169.58.90.98` |
+| `GET /api/domain`, `POST /api/domain`, `POST /api/domain/check`, `DELETE /api/domain` | signed-in store owner |
+| `php artisan domains:verified` | verified apex names, one per line |
+| `GET /internal/domain-check?domain=` | `200` only for a verified custom domain (or `www.` of it), and only when both `REMOTE_ADDR` and `Host` are loopback |
+
+TLS for those names is installed on the server later. Point the installer at
+`http://127.0.0.1/internal/domain-check?domain=`.
+
 ### Reference designs
 
 `webhatbd.com/demo3` and `webhatbd.com/demo7` returned **403** from this build
