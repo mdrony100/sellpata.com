@@ -14,7 +14,11 @@ const routes = [
     { path: '/', name: 'home', component: HomeView, meta: { seo: 'home' } },
     { path: '/login', name: 'login', component: LoginView },
     { path: '/clients', name: 'clients', component: ClientsView, meta: { seo: 'clients' } },
-    { path: '/contact', name: 'contact', component: ContactView, meta: { seo: 'contact' } },
+        { path: '/contact', name: 'contact', component: ContactView, meta: { seo: 'contact' } },
+    { path: '/blog', name: 'blog', component: () => import('./views/BlogIndexView.vue') },
+    { path: '/blog/:slug', name: 'blog-post', component: () => import('./views/BlogPostView.vue') },
+    { path: '/privacy-policy', name: 'privacy', component: () => import('./views/LegalView.vue') },
+    { path: '/terms', name: 'terms', component: () => import('./views/LegalView.vue') },
     {
         path: '/start',
         name: 'start',

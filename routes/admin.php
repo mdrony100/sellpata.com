@@ -33,6 +33,12 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::patch('messages/{message}/handled', [MessageController::class, 'handled'])->name('messages.handled');
         Route::delete('messages/{message}', [MessageController::class, 'destroy'])->name('messages.destroy');
 
+        Route::resource('posts', \App\Http\Controllers\Admin\PostController::class)->except(['show', 'create', 'edit']);
+        Route::get('seo', [\App\Http\Controllers\Admin\SeoController::class, 'index'])->name('seo.index');
+        Route::put('seo', [\App\Http\Controllers\Admin\SeoController::class, 'update'])->name('seo.update');
+        Route::resource('posts', \App\Http\Controllers\Admin\PostController::class)->except(['show', 'create', 'edit']);
+        Route::get('seo', [\App\Http\Controllers\Admin\SeoController::class, 'index'])->name('seo.index');
+        Route::put('seo', [\App\Http\Controllers\Admin\SeoController::class, 'update'])->name('seo.update');
         Route::get('settings', [SettingController::class, 'index'])->name('settings.index');
         Route::put('settings', [SettingController::class, 'update'])->name('settings.update');
 

@@ -6,22 +6,48 @@
     <meta name="theme-color" content="#0d3b2e">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>@yield('title', 'SellPata — ফেসবুকের ব্যবসার জন্য নিজের ব্র্যান্ডের ল্যান্ডিং পেজ')</title>
-    <meta name="description" content="@yield('description', 'ফেসবুক উদ্যোক্তাদের জন্য রেডিমেড ল্যান্ডিং পেজ। পছন্দের ডিজাইন বেছে নিন, নিজের ব্র্যান্ডের রঙে সাজান, কোডিং ছাড়াই শুরু করুন।')">
+    @php
+        $seo = $seo ?? [];
+        $siteName = \App\Models\Setting::get('brand.name') ?: 'SellPata';
+        $seoTitle = $seo['title'] ?? \App\Models\Setting::get('seo.site.title') ?: 'SellPata — ফেসবুকের ব্যবসার জন্য নিজের ব্র্যান্ডের ল্যান্ডিং পেজ';
+        $seoDescription = $seo['description'] ?? \App\Models\Setting::get('seo.site.description') ?: 'ফেসবুক উদ্যোক্তাদের জন্য রেডিমেড ল্যান্ডিং পেজ। পছন্দের ডিজাইন বেছে নিন, নিজের ব্র্যান্ডের রঙে সাজান, কোডিং ছাড়াই শুরু করুন।';
+        $seoImage = $seo['image'] ?? (\App\Models\Setting::get('seo.og_image') ?: asset('og-image.png'));
+        $seoRobots = $seo['robots'] ?? (\App\Models\Setting::get('seo.robots') ?: 'index,follow');
+        $seoKeywords = \App\Models\Setting::get('seo.site.keywords');
+        $seoVerification = \App\Models\Setting::get('seo.google_verification');
+        $seoAnalytics = \App\Models\Setting::get('seo.analytics_id');
+    @endphp
 
-    <link rel="canonical" href="{{ url()->current() }}">
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="{{ url()->current() }}">
-    <meta property="og:site_name" content="SellPata">
-    <meta property="og:title" content="@yield('og_title', 'SellPata — ফেসবুকের ব্যবসার জন্য নিজের ব্র্যান্ডের ল্যান্ডিং পেজ')">
-    <meta property="og:description" content="@yield('og_description', 'ফেসবুক উদ্যোক্তাদের জন্য রেডিমেড ল্যান্ডিং পেজ। পছন্দের ডিজাইন বেছে নিন, নিজের ব্র্যান্ডের রঙে সাজান।')">
+    <title>{{ $seoTitle }}</title>
+    <meta name="description" content="{{ $seoDescription }}">
+    <meta name="robots" content="{{ $seoRobots }}">
+    @if ($seoKeywords)<meta name="keywords" content="{{ $seoKeywords }}">@endif
+    @if ($seoVerification)<meta name="google-site-verification" content="{{ $seoVerification }}">@endif
+
+    <link rel="canonical" href="{{ $seo['canonical'] ?? url()->current() }}">
+    <meta property="og:type" content="{{ $seo['type'] ?? 'website' }}">
+    <meta property="og:url" content="{{ $seo['canonical'] ?? url()->current() }}">
+    <meta property="og:site_name" content="{{ $siteName }}">
+    <meta property="og:title" content="{{ $seoTitle }}">
+    <meta property="og:description" content="{{ $seoDescription }}">
     <meta property="og:locale" content="bn_BD">
-    <meta property="og:image" content="{{ asset('og-image.png') }}">
+    <meta property="og:image" content="{{ $seoImage }}">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="SellPata — নিজের ব্র্যান্ডের ল্যান্ডিং পেজ">
+    <meta property="og:image:alt" content="{{ $seoTitle }}">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:image" content="{{ asset('og-image.png') }}">
+    <meta name="twitter:title" content="{{ $seoTitle }}">
+    <meta name="twitter:description" content="{{ $seoDescription }}">
+    <meta name="twitter:image" content="{{ $seoImage }}">
+
+    @isset($seo['jsonld'])
+        <script type="application/ld+json">{!! json_encode($seo['jsonld'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) !!}</script>
+    @endisset
+
+    @if ($seoAnalytics)
+        <script async src="https://www.googletagmanager.com/gtag/js?id={{ $seoAnalytics }}"></script>
+        <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','{{ $seoAnalytics }}');</script>
+    @endif
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

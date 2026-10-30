@@ -12,6 +12,11 @@
                 </RouterLink>
             </nav>
 
+            <nav class="site-footer__legal" aria-label="আইনি">
+                <RouterLink to="/blog" class="site-footer__link">ব্লগ</RouterLink>
+                <RouterLink to="/privacy-policy" class="site-footer__link">প্রাইভেসি পলিসি</RouterLink>
+                <RouterLink to="/terms" class="site-footer__link">শর্তাবলি</RouterLink>
+            </nav>
             <p v-if="contactLinks.length" class="site-footer__contact">
                 <a v-for="link in contactLinks" :key="link.href" :href="link.href">{{ link.label }}</a>
             </p>

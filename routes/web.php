@@ -71,7 +71,16 @@ Route::get('/api/draft-media/{media}', [DraftMediaController::class, 'show'])
     ->middleware('signed')
     ->name('draft.media.show');
 
+Route::get('/blog', [\App\Http\Controllers\BlogController::class, 'index'])->name('blog.index');
+Route::get('/blog/{slug}', [\App\Http\Controllers\BlogController::class, 'show'])->name('blog.show');
+Route::get('/privacy-policy', [\App\Http\Controllers\LegalController::class, 'privacy'])->name('legal.privacy');
+Route::get('/terms', [\App\Http\Controllers\LegalController::class, 'terms'])->name('legal.terms');
+Route::get('/sitemap.xml', [\App\Http\Controllers\BlogController::class, 'sitemap'])->name('sitemap');
+
 Route::prefix('api')->group(function () {
+    Route::get('/blog', [\App\Http\Controllers\BlogController::class, 'apiIndex']);
+    Route::get('/blog/{slug}', [\App\Http\Controllers\BlogController::class, 'apiShow']);
+    Route::get('/legal/{doc}', [\App\Http\Controllers\LegalController::class, 'doc']);
     Route::post('/auth/send-otp', [\App\Http\Controllers\Auth\PhoneLoginController::class, 'send'])->middleware('throttle:10,1');
     Route::post('/auth/verify', [\App\Http\Controllers\Auth\PhoneLoginController::class, 'verify'])->middleware('throttle:10,1');
 });
