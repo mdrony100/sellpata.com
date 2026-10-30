@@ -38,7 +38,7 @@ Route::view('/clients', 'app')->name('clients');
 Route::view('/contact', 'app')->name('contact');
 
 // Onboarding: discovery and the draft builder run in their own full-screen shell.
-Route::view('/login', 'app');
+Route::view('/login', 'app')->name('login');
 Route::view('/start', 'app')->name('start');
 Route::view('/builder/{publicId}', 'app')->name('builder')->whereUuid('publicId');
 
