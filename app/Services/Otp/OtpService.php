@@ -26,10 +26,10 @@ class OtpService
     {
         $sender = $this->sender();
 
-        // Without an SMS provider the flow can still run in local/testing: the
-        // code is shown on screen instead of being texted. Production keeps the
-        // hard requirement so no one can claim a page without a real OTP.
-        $devCodes = config('otp.expose_test_code') && ! app()->environment('production');
+        // Without an SMS provider the flow can still run: the code is shown on
+        // screen instead of being texted. Production only allows this when
+        // OTP_EXPOSE_TEST_CODE=true is set explicitly (demo-code mode).
+        $devCodes = (bool) config('otp.expose_test_code');
 
         if (! $sender->configured() && ! $devCodes) {
             throw new OtpException('provider_missing');

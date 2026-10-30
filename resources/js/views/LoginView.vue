@@ -78,7 +78,7 @@ async function send () {
         testCode.value = data.test_code ? String(data.test_code) : null;
         message.value = testCode.value
             ? 'এই নম্বরে একটি কোড পাঠানো হয়েছে।'
-            : 'এই নম্বরে কোনো অ্যাকাউন্ট পাওয়া যায়নি। ডেমো নম্বর: 01711000001';
+            : 'এই নম্বরে কোনো অ্যাকাউন্ট পাওয়া যায়নি। নতুন? ল্যান্ডিং পেজ বানিয়ে শুরু করুন।';
 
         if (testCode.value) {
             code.value = testCode.value;
