@@ -12,5 +12,9 @@ return [
     // Local testing only: returns the code in the API response. Never true in production.
     // Until a real SMS provider is wired up, the generated code is shown on
     // screen so the flow can be walked end to end. Production never exposes it.
+    // Phone-only onboarding while the SMS provider is still being wired up.
+    // The number is trusted as entered; codes come back on later.
+    'skip_verification' => (bool) env('OTP_SKIP_VERIFICATION', env('APP_ENV', 'production') === 'local'),
+
     'expose_test_code' => (bool) env('OTP_EXPOSE_TEST_CODE', env('APP_ENV', 'production') !== 'production'),
 ];

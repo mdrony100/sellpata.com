@@ -136,18 +136,18 @@
             <div v-if="phoneOpen" class="editor" role="dialog" aria-modal="true" @keydown.esc="closePhone">
                 <div class="editor__panel editor__panel--narrow">
                     <template v-if="claimStep === 'phone'">
-                        <h2>আপনার ল্যান্ডিং পেজটি নিজের নামে সংরক্ষণ করুন</h2>
+                        <h2>{{ skipOtp ? 'আপনার ল্যান্ডিং পেজটি নিজের নামে সংরক্ষণ করুন' : 'আপনার ল্যান্ডিং পেজটি নিজের নামে সংরক্ষণ করুন' }}</h2>
                         <p class="editor__lede">মোবাইল নম্বর যাচাই করুন। আপনার সাজানো পেজটি আপনার অ্যাকাউন্টে যুক্ত হবে।</p>
-                        <label for="phone">মোবাইল নম্বর (+৮৮০)</label>
+                        <label for="phone">মোবাইল নম্বর</label>
                         <div class="editor__phone">
                             <span>+88</span>
                             <input id="phone" v-model="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="01XXXXXXXXX" />
                         </div>
-                        <p class="editor__hint">এই নম্বরে একটি যাচাইকরণ কোড পাঠানো হবে।</p>
+                        <p class="editor__hint">{{ skipOtp ? 'এই নম্বরেই আপনার অ্যাকাউন্ট তৈরি হবে।' : 'এই নম্বরে একটি যাচাইকরণ কোড পাঠানো হবে।' }}</p>
                         <p v-if="phoneError" class="editor__error">{{ phoneError }}</p>
                         <footer>
                             <button type="button" class="btn btn--primary" :disabled="sendingPhone" @click="sendOtp">
-                                {{ sendingPhone ? 'পাঠানো হচ্ছে…' : 'ওটিপি পাঠান' }}
+                                {{ sendingPhone ? 'একটু অপেক্ষা করুন…' : (skipOtp ? 'এগিয়ে যান' : 'ওটিপি পাঠান') }}
                             </button>
                             <button type="button" class="btn btn--ghost" @click="closePhone">বন্ধ করুন</button>
                         </footer>
@@ -223,6 +223,7 @@ const phone = ref('');
 const code = ref('');
 const maskedPhone = ref('');
 const testCode = ref(null);
+const skipOtp = ref(false);
 
 function fillTestCode() {
     if (testCode.value) code.value = String(testCode.value);
@@ -343,7 +344,7 @@ async function republishPage() {
     }
 
     try {
-        await api('/api/pages', { method: 'POST', body: { draft_id: draft.value.id } });
+        await api('/api/pages', { method: 'POST', body: { draft_id: draftApi.draft.value?.id } });
         await router.push({ path: '/dashboard/pages', query: { published: 1 } });
     } catch (e) {
         await router.push({ path: '/dashboard/pages', query: { notice: e.data?.message ?? '' } });
@@ -356,6 +357,15 @@ async function sendOtp() {
 
     try {
         const result = await api(`/api/drafts/${publicId}/otp`, { method: 'POST', body: { phone: phone.value } });
+
+        // Phone-only claim: the draft is already ours, go straight on.
+        if (result.skip_otp) {
+            // Account is created and the draft is ours; carry on to store setup.
+            claimStep.value = 'done';
+            await finishOnboarding(result);
+            return;
+        }
+
         maskedPhone.value = result.phone_masked;
         testCode.value = result.test_code;
         claimStep.value = 'code';
@@ -375,7 +385,7 @@ async function sendOtp() {
  * before the page can go live.
  */
 async function finishOnboarding(result) {
-    const draftId = draft.value?.id ?? result?.draft?.id;
+    const draftId = draftApi.draft.value?.id ?? result?.draft?.id ?? null;
     if (!draftId) return;
 
     try {
@@ -432,7 +442,8 @@ function closePhone() {
 
 onMounted(async () => {
     try {
-        await draftApi.load();
+        const data = await draftApi.load();
+        skipOtp.value = data?.skip_otp === true;
     } catch (e) {
         notFound.value = true;
     } finally {

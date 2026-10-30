@@ -35,6 +35,23 @@ class OtpController extends Controller
             ]);
         }
 
+        // SMS is not wired yet: the number alone claims the draft.
+        if (config('otp.skip_verification')) {
+            $user = $this->claimDraft($draft, $phone);
+
+            Auth::login($user);
+            $request->session()->regenerate();
+
+            return response()->json([
+                'ok' => true,
+                'skip_otp' => true,
+                'csrf' => csrf_token(),
+                'message' => 'পেজটি আপনার অ্যাকাউন্টে যুক্ত হয়েছে।',
+                'draft_id' => $draft->public_id,
+                'user_id' => $user->id,
+            ]);
+        }
+
         try {
             $result = $this->otp->start($draft, $phone, VisitorIdentity::current($request), $request->ip());
         } catch (OtpException $e) {
@@ -89,7 +106,22 @@ class OtpController extends Controller
             ], 422);
         }
 
-        $user = DB::transaction(function () use ($draft, $phone) {
+        $user = $this->claimDraft($draft, $phone);
+
+        Auth::login($user);
+        $request->session()->regenerate();
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'ফোন নম্বর যাচাই হয়েছে!',
+            'draft_id' => $draft->public_id,
+            'user_id' => $user->id,
+        ]);
+    }
+    /** Ties a draft to an account, creating the account when the number is new. */
+    private function claimDraft(Draft $draft, string $phone): User
+    {
+        return DB::transaction(function () use ($draft, $phone) {
             $locked = Draft::whereKey($draft->id)->lockForUpdate()->firstOrFail();
 
             abort_if($locked->user_id !== null, 409, 'এই ড্রাফট আগেই যুক্ত হয়েছে।');
@@ -118,15 +150,5 @@ class OtpController extends Controller
 
             return $user;
         });
-
-        Auth::login($user);
-        $request->session()->regenerate();
-
-        return response()->json([
-            'ok' => true,
-            'message' => 'ফোন নম্বর যাচাই হয়েছে!',
-            'draft_id' => $draft->public_id,
-            'user_id' => $user->id,
-        ]);
     }
 }

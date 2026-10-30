@@ -65,6 +65,13 @@ async function send () {
     message.value = '';
     try {
         const data = await api('/api/auth/send-otp', { method: 'POST', body: { phone: phone.value.trim() } });
+
+        // Phone-only sign in: no code step while SMS is unwired.
+        if (data.redirect) {
+            await router.push(data.redirect);
+            return;
+        }
+
         stage.value = 'code';
         // Show the number the way it was matched, minus the prefix this field owns.
         if (data.phone) phone.value = data.phone.replace(/^\+?880/, '');

@@ -38,6 +38,12 @@ export async function api(path, { method = 'GET', body, form } = {}) {
 
     const data = await response.json().catch(() => ({}));
 
+    // Signing in regenerates the session, so the page's meta token goes stale.
+    if (data && data.csrf) {
+        const meta = document.querySelector('meta[name="csrf-token"]');
+        if (meta) meta.content = data.csrf;
+    }
+
     if (!response.ok) {
         throw new ApiError(data.message ?? data.error ?? 'অনুরোধ ব্যর্থ হয়েছে', response.status, data);
     }

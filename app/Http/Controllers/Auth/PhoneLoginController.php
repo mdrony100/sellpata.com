@@ -27,6 +27,30 @@ class PhoneLoginController extends Controller
         }
 
         $user = User::where('phone', $phone)->first();
+
+        // SMS is not wired yet: the number alone signs the customer in.
+        if (config('otp.skip_verification')) {
+            if (! $user) {
+                return response()->json([
+                    'message' => 'এই নম্বরে কোনো অ্যাকাউন্ট নেই। নতুন? ল্যান্ডিং পেজ বানিয়ে শুরু করুন।',
+                    'needs_account' => true,
+                ], 404);
+            }
+
+            \Illuminate\Support\Facades\Auth::login($user);
+            $request->session()->regenerate();
+
+            AuditLog::record('auth.login', $user, ['via' => 'phone'], $user->id);
+
+            return response()->json([
+                'ok' => true,
+                'skip_otp' => true,
+                'csrf' => csrf_token(),
+                'message' => 'সফলভাবে লগইন হয়েছে।',
+                'redirect' => '/dashboard',
+            ]);
+        }
+
         $code = (string) random_int(100000, 999999);
 
         // The same answer either way: the response must not reveal whether the

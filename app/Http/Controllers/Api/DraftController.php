@@ -56,6 +56,8 @@ class DraftController extends Controller
         $draft->loadMissing('template.category');
 
         return response()->json([
+            // While SMS is unwired the client hides the code step entirely.
+            'skip_otp' => (bool) config('otp.skip_verification'),
             'draft' => $this->payload($draft),
             'template' => [
                 'id' => $draft->template->id,
@@ -132,6 +134,8 @@ class DraftController extends Controller
     private function payload(Draft $draft): array
     {
         return [
+            // Numeric id is what the page-creation endpoint takes.
+            'id' => $draft->id,
             'public_id' => $draft->public_id,
             'title' => $draft->title,
             'content' => $draft->content,
