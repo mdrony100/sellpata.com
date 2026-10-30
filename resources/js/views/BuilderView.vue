@@ -208,7 +208,7 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import TemplateRender from '../components/builder/TemplateRender.vue';
 import { useDraft } from '../composables/useDraft';
 import { api, getPath } from '../lib/api';

@@ -1142,6 +1142,9 @@ a:hover { color: var(--brand-800); }
 .shot__bar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 16px;color:#fff;flex-wrap:wrap}
 .shot__bar p{margin:0;font-weight:600}
 .shot__actions{display:flex;gap:8px;flex-wrap:wrap}
+/* the bar behind these buttons is near-black, so the default dark ghost label disappears */
+.shot__bar .btn--ghost{--btn-fg:#f7f5ee;--btn-border:rgba(247,245,238,.42);color:#f7f5ee}
+.shot__bar .btn--ghost:hover{background:rgba(247,245,238,.14);color:#fff}
 .shot__scroll{flex:1;overflow:auto;padding:0 16px 24px;display:flex;justify-content:center}
 .shot__scroll img{width:min(760px,100%);height:auto;border-radius:12px;background:#fff}
 
