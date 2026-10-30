@@ -8,6 +8,88 @@ use Illuminate\Http\Request;
 
 class ProfileController extends Controller
 {
+    /** Step one of changing the login number: send a code to the new one. */
+    public function sendPhoneOtp(Request $request)
+    {
+        $data = $request->validate([
+            'phone' => ['required', 'string', 'regex:/^\+?[0-9]{10,15}$/', 'unique:users,phone'],
+        ], [], ['phone' => 'মোবাইল নম্বর']);
+
+        $user = $request->user();
+
+        $recent = \App\Models\OtpChallenge::where('user_id', $user->id)
+            ->where('purpose', 'phone_change')
+            ->where('created_at', '>', now()->subMinutes(15))
+            ->count();
+
+        if ($recent >= 3) {
+            return response()->json(['message' => 'অনেকবার চেষ্টা হয়েছে। ১৫ মিনিট পর আবার চেষ্টা করুন।'], 429);
+        }
+
+        $code = (string) random_int(100000, 999999);
+
+        \App\Models\OtpChallenge::create([
+            'user_id' => $user->id,
+            'phone' => $data['phone'],
+            'purpose' => 'phone_change',
+            'code_hash' => \Illuminate\Support\Facades\Hash::make($code),
+            'attempts' => 0,
+            'max_attempts' => 5,
+            'sends' => 1,
+            'expires_at' => now()->addMinutes(10),
+            'last_sent_at' => now(),
+            'ip' => $request->ip(),
+        ]);
+
+        \Illuminate\Support\Facades\Log::info('phone change OTP', ['user' => $user->id, 'code' => $code]);
+
+        $response = ['ok' => true, 'message' => 'নতুন নম্বরে একটি কোড পাঠানো হয়েছে।'];
+
+        if (config('otp.expose_test_code')) {
+            $response['test_code'] = $code;
+        }
+
+        return response()->json($response);
+    }
+
+    /** Step two: the code proves the new number, then it replaces the old one. */
+    public function verifyPhoneOtp(Request $request)
+    {
+        $data = $request->validate([
+            'phone' => ['required', 'string', 'regex:/^\+?[0-9]{10,15}$/', 'unique:users,phone'],
+            'code' => ['required', 'string', 'digits:6'],
+        ], [], ['phone' => 'মোবাইল নম্বর', 'code' => 'কোড']);
+
+        $user = $request->user();
+
+        $challenge = \App\Models\OtpChallenge::where('user_id', $user->id)
+            ->where('purpose', 'phone_change')
+            ->where('phone', $data['phone'])
+            ->latest()
+            ->first();
+
+        if (! $challenge || ! $challenge->isUsable()) {
+            return response()->json(['message' => 'কোডের সময় শেষ। আবার কোড পাঠান।'], 422);
+        }
+
+        if (! \Illuminate\Support\Facades\Hash::check($data['code'], $challenge->code_hash)) {
+            $challenge->increment('attempts');
+
+            return response()->json(['message' => 'কোডটি মেলেনি।'], 422);
+        }
+
+        $old = $user->phone;
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($user, $challenge, $data, $old) {
+            $user->forceFill(['phone' => $data['phone']])->save();
+            $challenge->forceFill(['consumed_at' => now()])->save();
+
+            \App\Models\AuditLog::record('user.phone_changed', $user, ['from' => $old, 'to' => $data['phone']], $user->id);
+        });
+
+        return response()->json(['ok' => true, 'message' => 'লগইনের নম্বর বদলানো হয়েছে।', 'phone' => $data['phone']]);
+    }
+
     public function update(Request $request)
     {
         abort_if(session('impersonator_id'), 403, 'গ্রাহক হিসেবে দেখার সময় এই পরিবর্তন করা যাবে না।');

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Customer;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Invoice;
+use App\Models\Store;
 use App\Models\Plan;
 use App\Models\Subscription;
 use App\Services\Platform\InvoiceService;
@@ -118,6 +119,32 @@ class BillingController extends Controller
         });
 
         return response()->json(['ok' => true, 'message' => 'আপনি এখন ফ্রি প্ল্যানে আছেন। বন্ধ করা পেজগুলোর কনটেন্ট সংরক্ষিত আছে।']);
+    }
+
+    /** Everything the store has generated: invoices and the order export. */
+    public function downloads(Request $request)
+    {
+        $user = $request->user();
+        abort_if($user === null, 401);
+
+        $store = Store::where('user_id', $user->id)->first();
+        abort_if($store === null, 409);
+
+        $invoices = \App\Models\Invoice::where('store_id', $store->id)->latest('issued_at')->get()
+            ->map(fn ($invoice) => [
+                'id' => $invoice->id,
+                'number' => $invoice->number,
+                'type' => $invoice->type,
+                'type_label' => $invoice->type === \App\Models\Invoice::SUBSCRIPTION ? 'সাবস্ক্রিপশন' : 'অর্ডার',
+                'amount' => (float) $invoice->amount,
+                'status' => $invoice->status,
+                'issued_at' => $invoice->issued_at?->toIso8601String(),
+            ]);
+
+        return response()->json([
+            'invoices' => $invoices,
+            'csv_export' => \App\Services\Platform\Entitlements::for($store)->feature('csv_export'),
+        ]);
     }
 
     public function invoices(Request $request)

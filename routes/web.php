@@ -106,6 +106,9 @@ Route::prefix('api')->middleware('auth')->group(function () {
     Route::post('/plans/{plan:slug}/downgrade', [BillingController::class, 'downgrade']);
     Route::post('/plans/{plan:slug}/request', [BillingController::class, 'request']);
     Route::get('/invoices', [BillingController::class, 'invoices']);
+    Route::get('/downloads', [BillingController::class, 'downloads']);
+    Route::post('/profile/phone/send-otp', [\App\Http\Controllers\Customer\ProfileController::class, 'sendPhoneOtp']);
+    Route::post('/profile/phone/verify', [\App\Http\Controllers\Customer\ProfileController::class, 'verifyPhoneOtp']);
     Route::get('/invoices/{invoice}/download', [BillingController::class, 'download']);
 
     Route::post('/impersonation/stop', [\App\Http\Controllers\Admin\ImpersonationController::class, 'stop']);

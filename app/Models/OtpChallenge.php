@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class OtpChallenge extends Model
 {
     protected $fillable = [
-        'phone', 'purpose', 'code_hash', 'draft_id', 'anonymous_identity_id',
+        'phone', 'purpose', 'code_hash', 'draft_id', 'anonymous_identity_id', 'user_id',
         'attempts', 'max_attempts', 'sends', 'expires_at', 'consumed_at', 'last_sent_at', 'ip',
     ];
 

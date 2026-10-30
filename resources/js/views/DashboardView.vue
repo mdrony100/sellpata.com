@@ -213,6 +213,31 @@
                 </table>
             </section>
 
+            <section v-else-if="tab === 'downloads'" class="dash__body">
+                <h2>ডাউনলোড</h2>
+                <p class="dash__muted">আপনার স্টোরের সব তৈরি হওয়া ফাইল এক জায়গায়: অর্ডার ও সাবস্ক্রিপশনের ইনভয়েস, আর প্ল্যানে থাকলে অর্ডারের CSV এক্সপোর্ট।</p>
+
+                <div style="display:flex;gap:10px;flex-wrap:wrap;margin:12px 0">
+                    <a v-if="downloads.csv_export" href="/api/orders/export" class="btn btn--sm btn--primary">অর্ডারের CSV এক্সপোর্ট</a>
+                    <span v-else class="dash__muted">CSV এক্সপোর্ট আপনার প্ল্যানে নেই।</span>
+                </div>
+
+                <p v-if="!downloads.invoices.length" class="dash__muted">এখনো কোনো ইনভয়েস তৈরি হয়নি।</p>
+                <table v-else class="dash__table">
+                    <thead><tr><th>ইনভয়েস</th><th>ধরন</th><th>তারিখ</th><th>টাকা</th><th>অবস্থা</th><th></th></tr></thead>
+                    <tbody>
+                        <tr v-for="i in downloads.invoices" :key="i.id">
+                            <td>{{ i.number }}</td>
+                            <td>{{ i.type_label }}</td>
+                            <td>{{ date(i.issued_at) }}</td>
+                            <td>৳{{ fmt(i.amount) }}</td>
+                            <td>{{ i.status === 'paid' ? 'পরিশোধিত' : 'বাকি' }}</td>
+                            <td><a :href="`/api/invoices/${i.id}/download`" target="_blank" rel="noopener">ডাউনলোড</a></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
             <section v-else-if="tab === 'profile'" class="dash__body dash__profile">
                 <h2>প্রোফাইল ও স্টোর সেটিংস</h2>
                 <form @submit.prevent="saveProfile">
@@ -221,7 +246,22 @@
                     <label class="dash__field"><span>স্টোরের নাম</span><input v-model="profile.store_name" type="text"></label>
                     <label class="dash__field"><span>যোগাযোগের নম্বর</span><input v-model="profile.contact_phone" type="tel" inputmode="tel"></label>
                     <label class="dash__field"><span>ডেলিভারি চার্জ (৳)</span><input v-model.number="profile.delivery_charge" type="number" min="0"></label>
-                    <p class="dash__muted">লগইনের নম্বর: {{ me.user.phone }} — নম্বর বদলাতে সহায়তা টিমের সঙ্গে যোগাযোগ করুন (OTP যাচাই প্রয়োজন)।</p>
+                    <div class="dash__field" style="margin-top:8px">
+                        <span>লগইনের নম্বর: <strong>{{ me.user.phone }}</strong></span>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+                            <input v-model="phoneNew" type="tel" inputmode="tel" placeholder="নতুন নম্বর (যেমন 01712345678)" style="flex:1;min-width:200px">
+                            <button type="button" class="btn btn--sm btn--ghost" :disabled="sendingPhone" @click="sendPhoneOtp">
+                                {{ sendingPhone ? 'পাঠানো হচ্ছে…' : 'কোড পাঠান' }}
+                            </button>
+                        </div>
+                        <div v-if="phoneStage === 'code'" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+                            <input v-model="phoneCode" type="text" inputmode="numeric" maxlength="6" placeholder="৬ ডিজিটের কোড" style="flex:1;min-width:160px">
+                            <button type="button" class="btn btn--sm btn--primary" :disabled="verifyingPhone" @click="verifyPhoneOtp">
+                                {{ verifyingPhone ? 'যাচাই হচ্ছে…' : 'যাচাই করুন' }}
+                            </button>
+                        </div>
+                        <p v-if="phoneOtpMessage" class="dash__muted">{{ phoneOtpMessage }}</p>
+                    </div>
                     <p class="dash__muted">স্টোরের ঠিকানা: {{ me.store.username }}.sellpata.com — প্রকাশের পর এটি নিজে বদলানো যায় না।</p>
                     <button type="submit" class="btn btn--primary" :disabled="savingProfile">{{ savingProfile ? 'সংরক্ষণ হচ্ছে…' : 'সংরক্ষণ করুন' }}</button>
                     <p v-if="profileMessage" class="dash__ok">{{ profileMessage }}</p>
@@ -248,6 +288,13 @@ const orders = ref([]);
 const statuses = ref(['new', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'returned']);
 const plans = ref([]);
 const invoices = ref([]);
+const downloads = ref({ invoices: [], csv_export: false });
+const phoneNew = ref('');
+const phoneCode = ref('');
+const phoneStage = ref('idle');
+const phoneOtpMessage = ref('');
+const sendingPhone = ref(false);
+const verifyingPhone = ref(false);
 const subscription = ref(null);
 
 const username = ref('');
@@ -275,6 +322,7 @@ const tabs = [
     { key: 'orders', label: 'অর্ডার' },
     { key: 'plans', label: 'প্যাকেজ' },
     { key: 'profile', label: 'প্রোফাইল' },
+    { key: 'downloads', label: 'ডাউনলোড' },
     { key: 'billing', label: 'লেনদেন ও ইনভয়েস' },
 ];
 
@@ -347,6 +395,53 @@ onMounted(async () => {
 });
 
 watch(tab, refreshTab);
+
+watch(tab, (value) => {
+    if (value === 'downloads') loadDownloads();
+});
+
+async function loadDownloads() {
+    try {
+        downloads.value = await api('/api/downloads');
+    } catch (error) {
+        downloads.value = { invoices: [], csv_export: false };
+    }
+}
+
+async function sendPhoneOtp() {
+    phoneOtpMessage.value = '';
+    sendingPhone.value = true;
+
+    try {
+        const data = await api('/api/profile/phone/send-otp', { method: 'POST', body: { phone: phoneNew.value.trim() } });
+        phoneStage.value = 'code';
+        phoneOtpMessage.value = data.test_code ? `${data.message} (ডেমো কোড: ${data.test_code})` : data.message;
+    } catch (error) {
+        phoneOtpMessage.value = error.data?.message ?? Object.values(error.data?.errors ?? {}).flat().join(' ') ?? 'কোড পাঠানো যায়নি।';
+    } finally {
+        sendingPhone.value = false;
+    }
+}
+
+async function verifyPhoneOtp() {
+    phoneOtpMessage.value = '';
+    verifyingPhone.value = true;
+
+    try {
+        const data = await api('/api/profile/phone/verify', {
+            method: 'POST',
+            body: { phone: phoneNew.value.trim(), code: phoneCode.value.trim() },
+        });
+        phoneOtpMessage.value = data.message;
+        phoneStage.value = 'idle';
+        phoneCode.value = '';
+        await loadMe();
+    } catch (error) {
+        phoneOtpMessage.value = error.data?.message ?? 'যাচাই করা যায়নি।';
+    } finally {
+        verifyingPhone.value = false;
+    }
+}
 
 let usernameTimer;
 function checkUsername() {
