@@ -232,4 +232,35 @@ class BuilderFlowTest extends TestCase
 
         $this->assertStringNotContainsString($draft->public_id, $response->getContent());
     }
+
+    public function test_demo_code_mode_works_in_production_when_explicitly_enabled(): void
+    {
+        [$payload, $draft] = $this->createDraft();
+
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
+        $this->app['env'] = 'production';
+        config(['otp.expose_test_code' => true, 'otp.driver' => 'log']);
+
+        $sent = $this->send('POST', "/api/drafts/{$draft->public_id}/otp", ['phone' => '01712345678']);
+        $sent->assertOk();
+        $code = $sent->json('test_code');
+        $this->assertMatchesRegularExpression('/^\d{6}$/', (string) $code);
+
+        $this->send('POST', "/api/drafts/{$draft->public_id}/otp/verify", ['phone' => '01712345678', 'code' => $code])
+            ->assertOk();
+        $this->assertNotNull(User::where('phone', '+8801712345678')->first());
+    }
+
+    public function test_production_without_demo_flag_refuses_and_hides_the_code(): void
+    {
+        [$payload, $draft] = $this->createDraft();
+
+        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class);
+        $this->app['env'] = 'production';
+        config(['otp.expose_test_code' => false, 'otp.driver' => 'log']);
+
+        $this->send('POST', "/api/drafts/{$draft->public_id}/otp", ['phone' => '01712345678'])
+            ->assertStatus(503)
+            ->assertJsonMissing(['test_code']);
+    }
 }
