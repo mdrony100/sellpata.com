@@ -58,6 +58,7 @@ async function send () {
     try {
         const data = await api('/api/auth/send-otp', { method: 'POST', body: { phone: phone.value.trim() } });
         stage.value = 'code';
+        if (data.phone) phone.value = data.phone;
         message.value = 'এই নম্বরে একটি কোড পাঠানো হয়েছে।';
 
         // In demo mode the generated code is returned so the field can be filled for testing.
