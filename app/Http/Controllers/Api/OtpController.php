@@ -115,6 +115,9 @@ class OtpController extends Controller
             'message' => 'ফোন নম্বর যাচাই হয়েছে!',
             'draft_id' => $draft->public_id,
             'user_id' => $user->id,
+            // regenerate() replaces the CSRF secret. The SPA must use this
+            // value before the next POST; the meta tag from page load is stale.
+            'csrf' => csrf_token(),
         ]);
     }
     /** Ties a draft to an account, creating the account when the number is new. */

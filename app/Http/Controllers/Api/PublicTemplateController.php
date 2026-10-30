@@ -16,6 +16,7 @@ class PublicTemplateController extends Controller
             ->firstOrFail();
 
         return response()->json([
+            'id' => $template->id,
             'name' => $template->name,
             'slug' => $template->slug,
             'design' => $template->design,

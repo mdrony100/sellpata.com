@@ -87,8 +87,11 @@
                 </div>
             </div>
             <div class="shot__scroll">
-                <img v-if="preview.preview || preview.thumbnail" :src="preview.preview || preview.thumbnail" :alt="`${preview.name} এর সম্পূর্ণ ডিজাইন`" />
-                <p v-else class="onb__empty">এই ডিজাইনের স্ক্রিনশট তৈরি হচ্ছে।</p>
+                <iframe
+                    class="shot__frame"
+                    :src="`/demo/${preview.slug}?embed=1`"
+                    :title="`${preview.name} — পূর্ণ প্রিভিউ`"
+                />
             </div>
         </div>
     </div>

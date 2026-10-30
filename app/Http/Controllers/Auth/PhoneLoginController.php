@@ -170,6 +170,7 @@ class PhoneLoginController extends Controller
             'ok' => true,
             'message' => 'সফলভাবে লগইন হয়েছে।',
             'redirect' => '/dashboard',
+            'csrf' => csrf_token(),
         ]);
     }
 }
