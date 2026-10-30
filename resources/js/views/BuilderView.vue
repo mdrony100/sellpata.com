@@ -359,6 +359,8 @@ async function sendOtp() {
         maskedPhone.value = result.phone_masked;
         testCode.value = result.test_code;
         claimStep.value = 'code';
+        // Local demo mode: put the shown code straight into the field.
+        if (result.test_code) fillTestCode();
         startCooldown(result.resend_after ?? 60);
     } catch (e) {
         phoneError.value = e.data?.error ?? e.data?.errors?.phone?.[0] ?? 'কোড পাঠানো যায়নি।';

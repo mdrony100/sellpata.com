@@ -5,8 +5,10 @@ namespace App\Services\Otp;
 use App\Models\AnonymousIdentity;
 use App\Models\Draft;
 use App\Models\OtpChallenge;
+use App\Support\PhoneNumber;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 
 class OtpService
 {
@@ -24,7 +26,12 @@ class OtpService
     {
         $sender = $this->sender();
 
-        if (! $sender->configured()) {
+        // Without an SMS provider the flow can still run in local/testing: the
+        // code is shown on screen instead of being texted. Production keeps the
+        // hard requirement so no one can claim a page without a real OTP.
+        $devCodes = config('otp.expose_test_code') && ! app()->environment('production');
+
+        if (! $sender->configured() && ! $devCodes) {
             throw new OtpException('provider_missing');
         }
 
@@ -70,7 +77,11 @@ class OtpService
             'ip' => $ip,
         ]);
 
-        $sender->send($phone, $code);
+        if ($sender->configured()) {
+            $sender->send($phone, $code);
+        } else {
+            Log::warning('otp: no provider configured, code shown on screen', ['phone' => PhoneNumber::mask($phone)]);
+        }
 
         return [
             'challenge' => $challenge,

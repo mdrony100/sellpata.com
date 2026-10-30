@@ -1,5 +1,4 @@
 <template>
-    <SiteHeader />
     <main class="auth">
         <section class="auth__card">
             <p class="auth__eyebrow">SellPata</p>
@@ -9,8 +8,11 @@
             <form class="auth__form" @submit.prevent="stage === 'phone' ? send() : verify()">
                 <label class="field">
                     <span class="field__label">মোবাইল নম্বর</span>
-                    <input v-model="phone" class="field__input" type="tel" inputmode="tel"
-                           autocomplete="tel" placeholder="01712345678" :disabled="stage === 'code' || busy">
+                    <div class="field__group">
+                        <span class="field__prefix">+880</span>
+                        <input v-model="phone" class="field__input field__input--grouped" type="tel" inputmode="tel"
+                               autocomplete="tel" placeholder="01712345678" maxlength="14" :disabled="stage === 'code' || busy">
+                    </div>
                 </label>
 
                 <label v-if="stage === 'code'" class="field">
@@ -19,6 +21,12 @@
                            type="text" inputmode="numeric" autocomplete="one-time-code"
                            maxlength="6" placeholder="------">
                 </label>
+
+                <div v-if="stage === 'code' && testCode" class="auth__demo" role="status">
+                    <p class="auth__demo-title">ডেমো মোড — এসএমএস এখনো চালু হয়নি</p>
+                    <p class="auth__demo-code">{{ testCode }}</p>
+                    <button class="link" type="button" @click="fillCode">আবার বসিয়ে দিন</button>
+                </div>
 
                 <button class="auth__submit" type="submit" :disabled="busy">
                     {{ busy ? 'একটু অপেক্ষা করুন…' : (stage === 'phone' ? 'কোড পাঠান' : 'লগইন করুন') }}
@@ -41,7 +49,6 @@
 <script setup>
 import { nextTick, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import SiteHeader from '../components/layout/SiteHeader.vue';
 import { api } from '../lib/api';
 
 const router = useRouter();
@@ -51,6 +58,7 @@ const stage = ref('phone');
 const busy = ref(false);
 const message = ref('');
 const codeInput = ref(null);
+const testCode = ref(null);
 
 async function send () {
     busy.value = true;
@@ -58,12 +66,15 @@ async function send () {
     try {
         const data = await api('/api/auth/send-otp', { method: 'POST', body: { phone: phone.value.trim() } });
         stage.value = 'code';
-        if (data.phone) phone.value = data.phone;
-        message.value = 'এই নম্বরে একটি কোড পাঠানো হয়েছে।';
+        // Show the number the way it was matched, minus the prefix this field owns.
+        if (data.phone) phone.value = data.phone.replace(/^\+?880/, '');
+        testCode.value = data.test_code ? String(data.test_code) : null;
+        message.value = testCode.value
+            ? 'এই নম্বরে একটি কোড পাঠানো হয়েছে।'
+            : 'এই নম্বরে কোনো অ্যাকাউন্ট পাওয়া যায়নি। ডেমো নম্বর: 01711000001';
 
-        // In demo mode the generated code is returned so the field can be filled for testing.
-        if (data.test_code) {
-            code.value = String(data.test_code);
+        if (testCode.value) {
+            code.value = testCode.value;
             await nextTick();
             codeInput.value?.focus();
         }
@@ -72,6 +83,12 @@ async function send () {
     } finally {
         busy.value = false;
     }
+}
+
+function fillCode () {
+    if (!testCode.value) return;
+    code.value = testCode.value;
+    codeInput.value?.focus();
 }
 
 async function verify () {
@@ -128,6 +145,13 @@ async function verify () {
 }
 .auth__form{display:grid;gap:16px}
 .field{display:grid;gap:7px}
+.field__group{display:flex;align-items:stretch;border:1px solid #ddd8c9;border-radius:10px;background:#f4f4f2;overflow:hidden}
+.field__group:focus-within{border-color:#16423c;box-shadow:0 0 0 3px rgba(22,66,60,.1)}
+.field__prefix{display:flex;align-items:center;padding:0 12px;background:#eceade;color:#3c4a45;font-weight:600;font-size:.95rem;border-right:1px solid #ddd8c9}
+.field__input--grouped{border:0!important;background:transparent!important;border-radius:0!important;box-shadow:none!important}
+.auth__demo{margin-top:2px;padding:12px 14px;border:1px dashed #cbd8d2;border-radius:10px;background:#f2f8f5;text-align:center}
+.auth__demo-title{margin:0 0 4px;font-size:.78rem;color:#4a625a}
+.auth__demo-code{margin:0 0 6px;font-family:ui-monospace,Menlo,monospace;font-size:1.4rem;font-weight:700;letter-spacing:.28em;color:#0f2a24}
 .field__label{font-size:.9rem;color:#4a5450}
 .field__input{
     width:100%;
