@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Page extends Model
 {
     protected $fillable = [
-        'store_id', 'draft_id', 'template_id', 'title', 'slug', 'status', 'is_primary',
+        'store_id', 'draft_id', 'template_id', 'published_template_id', 'title', 'slug', 'status', 'is_primary',
         'content', 'published_content', 'revision', 'published_at',
     ];
 
@@ -27,6 +27,27 @@ class Page extends Model
     public function template(): BelongsTo
     {
         return $this->belongsTo(BuilderTemplate::class, 'template_id');
+    }
+
+    public function publishedTemplate(): BelongsTo
+    {
+        return $this->belongsTo(BuilderTemplate::class, 'published_template_id');
+    }
+
+    /** Visitors keep the theme that was live at publish time until the next publish. */
+    public function liveDesign(): string
+    {
+        if ($this->status === 'published' && $this->published_template_id) {
+            $this->loadMissing('publishedTemplate');
+
+            if ($this->publishedTemplate) {
+                return $this->publishedTemplate->design;
+            }
+        }
+
+        $this->loadMissing('template');
+
+        return $this->template?->design ?? 'spotlight';
     }
 
     public function isPublished(): bool

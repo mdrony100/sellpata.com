@@ -18,7 +18,7 @@
                     <span v-if="statusLabel" class="builder__status" :class="`builder__status--${status}`">{{ statusLabel }}</span>
                 </div>
                 <div class="builder__bar-actions">
-                    <button v-if="themes.length" type="button" class="btn btn--ghost" @click="themeOpen = true">থিম বদলান</button>
+                    <button v-if="themes.length" type="button" class="btn btn--ghost" @click="themeOpen = true">থিম পরিবর্তন</button>
                     <button type="button" class="btn btn--primary btn--lg" @click="publish">প্রকাশ করুন</button>
                 </div>
             </header>
@@ -156,21 +156,15 @@
                 </div>
             </div>
 
-            <div v-if="themeOpen" class="editor" role="dialog" aria-modal="true" aria-label="থিম বদলান">
-                <div class="editor__panel editor__panel--narrow">
-                    <h2>থিম বদলান</h2>
-                    <p class="editor__lede">লেখা, দাম, ছবি, ভ্যারিয়েন্ট, প্রশ্ন ও ডেলিভারি থাকবে। হিরোর ধরন ও সেকশনের ক্রম নতুন থিমের মতো হবে। যে থিমে নমুনা রিভিউ নেই, সেখানে নমুনা মতামত যাবে না।</p>
-                    <label v-for="item in themes" :key="item.id" class="editor__toggle">
-                        <input v-model="nextThemeId" type="radio" name="next-theme" :value="item.id" />
-                        <span><strong>{{ item.name }}</strong> — {{ item.tagline }}</span>
-                    </label>
-                    <p v-if="themeError" class="editor__error">{{ themeError }}</p>
-                    <footer>
-                        <button type="button" class="btn btn--primary" :disabled="!nextThemeId || switching" @click="confirmTheme">বদল নিশ্চিত করুন</button>
-                        <button type="button" class="btn btn--ghost" @click="themeOpen = false">বাতিল</button>
-                    </footer>
-                </div>
-            </div>
+            <ThemeChangeDialog
+                :open="themeOpen"
+                :themes="themes"
+                :current-id="template?.id"
+                :busy="switching"
+                :error="themeError"
+                @close="themeOpen = false"
+                @confirm="confirmTheme"
+            />
 
             <div class="builder__publish-bar">
                 <button type="button" class="btn btn--primary btn--lg" @click="publish">প্রকাশ করুন</button>
@@ -244,6 +238,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import TemplateRender from '../components/builder/TemplateRender.vue';
+import ThemeChangeDialog from '../components/dashboard/ThemeChangeDialog.vue';
 import { useDraft } from '../composables/useDraft';
 import { api, getPath } from '../lib/api';
 
@@ -261,7 +256,6 @@ const error = ref('');
 const editingField = ref(null);
 const themes = ref([]);
 const themeOpen = ref(false);
-const nextThemeId = ref(null);
 const themeError = ref('');
 const switching = ref(false);
 const fromCategory = route.query.from ?? null;
@@ -335,14 +329,14 @@ function moveSection(index, delta) {
     draftApi.updateAt('section_order', items);
 }
 
-async function confirmTheme() {
+async function confirmTheme({ templateId }) {
     themeError.value = '';
     switching.value = true;
     try {
         await draftApi.flush();
         await api(`/api/drafts/${publicId}/switch-theme`, {
             method: 'POST',
-            body: { template_id: nextThemeId.value, confirm: true },
+            body: { template_id: templateId, confirm: true },
         });
         const data = await draftApi.load();
         themes.value = data.themes ?? [];
@@ -532,7 +526,6 @@ onMounted(async () => {
         const data = await draftApi.load();
         skipOtp.value = data?.skip_otp === true;
         themes.value = data?.themes ?? [];
-        nextThemeId.value = data?.themes?.[0]?.id ?? null;
     } catch (e) {
         notFound.value = true;
     } finally {

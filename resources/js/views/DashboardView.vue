@@ -178,6 +178,7 @@
                         <div class="dash-card__body">
                             <h3>{{ page.title }}</h3>
                             <p v-if="page.template" class="dash-muted">{{ page.template }}</p>
+                            <p v-if="page.theme_pending" class="dash-muted">লাইভে আগের থিম আছে। প্রকাশ করলে নতুন থিম দেখা যাবে।</p>
                             <a v-if="page.url" :href="page.url" target="_blank" rel="noopener" class="dash-ellipsis">{{ prettyUrl(page.url) }}</a>
                             <p v-else class="dash-muted">এখনো প্রকাশিত হয়নি</p>
                             <p class="dash-tags">
@@ -192,6 +193,7 @@
                                 </button>
                                 <a v-if="page.url" :href="page.url" target="_blank" rel="noopener" class="btn btn--sm btn--secondary">দেখুন</a>
                                 <button type="button" class="btn btn--sm btn--secondary" @click="editPage(page)">এডিট</button>
+                                <button type="button" class="btn btn--sm btn--secondary" @click="openTheme(page)">থিম পরিবর্তন</button>
                                 <button v-if="page.status === 'published' && !page.is_primary" type="button" class="btn btn--sm btn--secondary" @click="makePrimary(page)">মূল পেজ করুন</button>
                                 <button type="button" class="btn btn--sm btn--secondary" @click="renamePage(page)">নাম/ঠিকানা</button>
                                 <button type="button" class="btn btn--sm btn--secondary" @click="duplicatePage(page)">কপি</button>
@@ -200,6 +202,16 @@
                         </div>
                     </article>
                 </div>
+                <ThemeChangeDialog
+                    :open="themeOpen"
+                    :themes="themes"
+                    :current-id="themePage?.template_id"
+                    :published="themePage?.status === 'published'"
+                    :busy="themeBusy"
+                    :error="themeError"
+                    @close="themeOpen = false"
+                    @confirm="confirmTheme"
+                />
             </section>
 
             <section v-else-if="tab === 'orders'" class="dash-stack">
@@ -513,6 +525,7 @@ import CustomDomainSettings from '../components/dashboard/CustomDomainSettings.v
 import DashIcon from '../components/dashboard/DashIcon.vue';
 import DashboardShell from '../components/dashboard/DashboardShell.vue';
 import EmptyState from '../components/dashboard/EmptyState.vue';
+import ThemeChangeDialog from '../components/dashboard/ThemeChangeDialog.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -521,6 +534,11 @@ const loading = ref(true);
 const me = ref(null);
 const overview = ref({});
 const pages = ref([]);
+const themes = ref([]);
+const themeOpen = ref(false);
+const themePage = ref(null);
+const themeBusy = ref(false);
+const themeError = ref('');
 const pageLimit = ref(1);
 const orders = ref([]);
 const orderPage = ref(1);
@@ -780,6 +798,42 @@ async function togglePublish(page) {
 async function makePrimary(page) {
     await api(`/api/pages/${page.id}/primary`, { method: 'POST' });
     await loadPages();
+}
+
+async function openTheme(page) {
+    themeError.value = '';
+    themePage.value = page;
+    themeOpen.value = true;
+    if (!themes.value.length) {
+        try {
+            themes.value = (await api('/api/landing-themes')).themes ?? [];
+        } catch {
+            themeError.value = 'থিমের তালিকা আনা যায়নি।';
+        }
+    }
+}
+
+async function confirmTheme({ templateId, republish }) {
+    if (!themePage.value) return;
+    themeBusy.value = true;
+    themeError.value = '';
+    try {
+        const data = await api(`/api/pages/${themePage.value.id}/theme`, {
+            method: 'POST',
+            body: { template_id: templateId, confirm: true, republish },
+        });
+        themeOpen.value = false;
+        pageNotice.value = data.republished
+            ? `${data.template} থিম প্রকাশিত পেজে লাগানো হয়েছে।`
+            : data.theme_pending
+                ? `${data.template} থিম খসড়ায় আছে। লাইভ পেজে দেখাতে প্রকাশ করুন।`
+                : `${data.template} থিম বসানো হয়েছে।`;
+        await loadPages();
+    } catch (error) {
+        themeError.value = error.data?.message ?? 'থিম বদলানো যায়নি।';
+    } finally {
+        themeBusy.value = false;
+    }
 }
 
 async function editPage(page) {

@@ -61,7 +61,7 @@ class StorefrontController extends Controller
                     'url' => $model->publicUrl($page),
                     'is_primary' => $page->is_primary,
                 ],
-                'design' => $page->template->design,
+                'design' => $page->liveDesign(),
                 'content' => $content,
                 'delivery' => [
                     'enabled' => $model->delivery_charge_enabled,

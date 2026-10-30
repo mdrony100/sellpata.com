@@ -97,6 +97,75 @@ class ThemeCatalog
         return self::constrain($merged);
     }
 
+    /**
+     * Move a page onto another theme.
+     * Product copy stays. Hero style and section order follow the new theme
+     * unless the merchant already changed them away from the theme they are leaving.
+     *
+     * @param  array<string, mixed>  $current
+     * @param  array<string, mixed>  $fromDefaults
+     * @param  array<string, mixed>  $toDefaults
+     * @return array<string, mixed>
+     */
+    public static function applyTheme(array $current, array $fromDefaults, array $toDefaults): array
+    {
+        $merged = self::mergeContent($current, $toDefaults);
+
+        if (! self::sameList($current['section_order'] ?? null, $fromDefaults['section_order'] ?? null)) {
+            $merged['section_order'] = $current['section_order'] ?? [];
+        }
+
+        $currentMode = $current['hero']['mode'] ?? null;
+        $fromMode = $fromDefaults['hero']['mode'] ?? null;
+        if ($currentMode !== null && $currentMode !== $fromMode) {
+            $merged['hero']['mode'] = $currentMode;
+        }
+
+        $sections = is_array($toDefaults['sections'] ?? null) ? $toDefaults['sections'] : [];
+        $fromSections = is_array($fromDefaults['sections'] ?? null) ? $fromDefaults['sections'] : [];
+        $currentSections = is_array($current['sections'] ?? null) ? $current['sections'] : [];
+        foreach ($currentSections as $key => $value) {
+            if (! array_key_exists($key, $fromSections) || $fromSections[$key] !== $value) {
+                $sections[$key] = $value;
+            }
+        }
+        $merged['sections'] = $sections;
+
+        return self::constrain($merged);
+    }
+
+    /** @return list<array<string, mixed>> */
+    public static function publicChoices(): array
+    {
+        return BuilderTemplate::query()
+            ->whereIn('design', self::DESIGNS)
+            ->where('is_published', true)
+            ->orderBy('sort_order')
+            ->get(['id', 'name', 'slug', 'design', 'tagline', 'thumbnail'])
+            ->map(fn (BuilderTemplate $theme) => [
+                'id' => $theme->id,
+                'name' => $theme->name,
+                'slug' => $theme->slug,
+                'design' => $theme->design,
+                'tagline' => $theme->tagline,
+                'thumbnail' => $theme->thumbnail,
+            ])
+            ->all();
+    }
+
+    private static function sameList(mixed $left, mixed $right): bool
+    {
+        $normalize = function (mixed $list): array {
+            if (! is_array($list)) {
+                return [];
+            }
+
+            return array_values(array_filter($list, fn ($item) => is_string($item) && $item !== ''));
+        };
+
+        return $normalize($left) === $normalize($right);
+    }
+
     /** @param  array<string, mixed>  $content */
     public static function constrain(array $content): array
     {
