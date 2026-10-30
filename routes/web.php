@@ -14,3 +14,5 @@ Route::view('/contact', 'app')->name('contact');
 Route::fallback(function () {
     return response()->view('app', [], 404);
 });
+
+require __DIR__.'/admin.php';

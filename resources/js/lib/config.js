@@ -18,6 +18,8 @@ export const config = {
         shipping: raw.features?.shipping ?? { available: false, coming_soon_label: 'শিগগিরই আসছে' },
     },
     contact: raw.contact ?? {},
+    // Templates, benefits, steps, clients and reviews managed in the admin panel.
+    content: raw.content ?? {},
     routes: normaliseRoutes(raw.routes),
 };
 

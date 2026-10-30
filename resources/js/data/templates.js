@@ -1,9 +1,15 @@
 /**
+ * Template + category content. Values come from the admin panel (Laravel
+ * bootstrap) and fall back to the shipped defaults when the database is empty.
+ */
+import config from '../lib/config';
+
+/**
  * Sample landing-page designs used for the marketing showcase.
  * Every entry is a demonstration only — never presented as a real client site.
  */
 
-export const categories = [
+const DEFAULT_CATEGORIES = [
     { id: 'fashion', label: 'ফ্যাশন ও পোশাক' },
     { id: 'beauty', label: 'বিউটি ও স্কিনকেয়ার' },
     { id: 'food', label: 'খাবার ও হোমমেড পণ্য' },
@@ -13,7 +19,7 @@ export const categories = [
     { id: 'gift', label: 'গিফট ও হ্যান্ডমেড পণ্য' },
 ];
 
-export const templates = [
+const DEFAULT_TEMPLATES = [
     {
         id: 'fashion-boutique',
         category: 'fashion',
@@ -167,3 +173,26 @@ export const templatesByCategory = (id) =>
     id === 'all' ? templates : templates.filter((item) => item.category === id);
 
 export const categoryLabel = (id) => categories.find((item) => item.id === id)?.label ?? '';
+
+const DB_CONTENT = config.content ?? {};
+
+export const categories = (DB_CONTENT.categories?.length
+    ? DB_CONTENT.categories.map((item) => ({ id: item.slug, label: item.label }))
+    : DEFAULT_CATEGORIES);
+
+export const templates = (DB_CONTENT.templates?.length
+    ? DB_CONTENT.templates.map((item) => ({
+        id: item.id,
+        category: item.category,
+        brand: item.brand,
+        headline: item.headline,
+        subline: item.subline ?? '',
+        product: item.product ?? '',
+        price: item.price ?? '',
+        oldPrice: item.oldPrice ?? '',
+        badge: item.badge ?? '',
+        cta: 'অর্ডার করুন',
+        art: item.art ?? 'gift',
+        palette: item.palette ?? {},
+    }))
+    : DEFAULT_TEMPLATES);

@@ -33,19 +33,8 @@
 <body>
     <div id="app"></div>
 
-    @php
-        // Site content that may change without touching the Vue code.
-        $bootstrap = array_merge(config('sellpata'), [
-            'routes' => [
-                'home' => route('home'),
-                'clients' => route('clients'),
-                'contact' => route('contact'),
-                'contact_endpoint' => route('api.contact.store'),
-            ],
-        ]);
-    @endphp
     <script>
-        window.__SELLPATA__ = {!! json_encode($bootstrap, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!};
+        window.__SELLPATA__ = {!! json_encode(\App\Support\SiteContent::bootstrap(), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!};
     </script>
 
     <noscript>

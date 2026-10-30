@@ -1,4 +1,9 @@
 /**
+ * Static marketing copy plus the parts the admin panel can edit.
+ */
+import config from '../lib/config';
+
+/**
  * Static marketing copy. Bengali text lives here (not inside components) so
  * wording changes never touch layout code.
  */
@@ -31,7 +36,7 @@ export const showcase = {
     defaultCountLabel: 'রেডিমেড ল্যান্ডিং পেজের সংগ্রহ',
 };
 
-export const benefits = [
+const DEFAULT_BENEFITS = [
     {
         key: 'ready',
         title: 'রেডিমেড ল্যান্ডিং পেজ',
@@ -61,7 +66,7 @@ export const benefits = [
     },
 ];
 
-export const steps = {
+const DEFAULT_STEPS = {
     heading: 'বেছে নিন। সাজান। শুরু করুন।',
     items: [
         {
@@ -157,4 +162,28 @@ export const contactPage = {
         errorBody: 'একটু পরে আবার চেষ্টা করুন। সমস্যা থাকলে সরাসরি যোগাযোগ করুন।',
         throttleBody: 'একটু বেশি বার চেষ্টা হয়েছে। এক মিনিট পর আবার পাঠান।',
     },
+};
+
+const DB_CONTENT = config.content ?? {};
+
+export const benefits = (DB_CONTENT.benefits?.length
+    ? DB_CONTENT.benefits.map((item) => ({
+        key: item.title,
+        title: item.title,
+        body: item.body,
+        icon: item.icon ?? 'spark',
+        feature: item.feature ?? null,
+    }))
+    : DEFAULT_BENEFITS);
+
+export const steps = {
+    ...DEFAULT_STEPS,
+    items: DB_CONTENT.steps?.length
+        ? DB_CONTENT.steps.map((item) => ({
+            number: item.number,
+            title: item.title,
+            body: item.body,
+            art: 'choose',
+        }))
+        : DEFAULT_STEPS.items,
 };
