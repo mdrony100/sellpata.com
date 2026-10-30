@@ -22,7 +22,7 @@ class StoreSetupController extends Controller
             'username' => $usernames->normalize($value),
             'error' => $usernames->error($value),
             'preview' => $usernames->normalize($value) !== ''
-                ? $usernames->normalize($value).'.'.config('platform.base_domain')
+                ? $usernames->normalize($value).'.'.\App\Services\Platform\PlatformSettings::get('platform.base_domain', 'sellpata.com')
                 : null,
         ]);
     }

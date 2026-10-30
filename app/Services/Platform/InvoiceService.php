@@ -60,10 +60,10 @@ class InvoiceService
             'status' => $status,
             'payment_reference' => $reference,
             'seller_snapshot' => [
-                'name' => config('platform.invoice.issuer.name'),
-                'address' => config('platform.invoice.issuer.address'),
-                'phone' => config('platform.invoice.issuer.phone'),
-                'email' => config('platform.invoice.issuer.email'),
+                'name' => \App\Services\Platform\PlatformSettings::get('platform.invoice.issuer.name', 'SellPata'),
+                'address' => \App\Services\Platform\PlatformSettings::get('platform.invoice.issuer.address', ''),
+                'phone' => \App\Services\Platform\PlatformSettings::get('platform.invoice.issuer.phone', ''),
+                'email' => \App\Services\Platform\PlatformSettings::get('platform.invoice.issuer.email', ''),
             ],
             'buyer_snapshot' => [
                 'name' => $store->display_name,
@@ -90,7 +90,7 @@ class InvoiceService
             'invoice' => $invoice,
             'order' => $order,
             'plan' => $invoice->subscription?->plan,
-            'vatNote' => config('platform.invoice.vat_note'),
+            'vatNote' => \App\Services\Platform\PlatformSettings::get('platform.invoice.vat_note', ''),
             'fontUrl' => 'file://'.resource_path('fonts/HindSiliguri-Regular.ttf'),
         ])->render();
 

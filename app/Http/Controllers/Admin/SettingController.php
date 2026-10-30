@@ -57,6 +57,38 @@ class SettingController extends Controller
             }
         }
 
+        // Platform fields are optional: an older form post (or a partial one)
+        // simply keeps the stored value instead of failing validation.
+        $request->validate([
+            'platform.base_domain' => ['sometimes', 'nullable', 'string', 'max:120', 'regex:/^[a-z0-9.-]+$/'],
+            'platform.impersonation_ttl_minutes' => ['sometimes', 'nullable', 'integer', 'min:5', 'max:240'],
+            'platform.invoice_issuer_name' => ['sometimes', 'nullable', 'string', 'max:120'],
+            'platform.invoice_issuer_address' => ['sometimes', 'nullable', 'string', 'max:200'],
+            'platform.invoice_issuer_phone' => ['sometimes', 'nullable', 'string', 'max:40'],
+            'platform.invoice_issuer_email' => ['sometimes', 'nullable', 'email', 'max:120'],
+            'platform.invoice_vat_note' => ['sometimes', 'nullable', 'string', 'max:200'],
+        ], [], [
+            'platform.base_domain' => 'বেস ডোমেইন',
+            'platform.impersonation_ttl_minutes' => 'সেশনের সময় (মিনিট)',
+            'platform.invoice_issuer_name' => 'প্রদানকারীর নাম',
+        ]);
+
+        $map = [
+            'base_domain' => 'platform.base_domain',
+            'impersonation_ttl_minutes' => 'platform.impersonation_ttl_minutes',
+            'invoice_issuer_name' => 'platform.invoice.issuer.name',
+            'invoice_issuer_address' => 'platform.invoice.issuer.address',
+            'invoice_issuer_phone' => 'platform.invoice.issuer.phone',
+            'invoice_issuer_email' => 'platform.invoice.issuer.email',
+            'invoice_vat_note' => 'platform.invoice.vat_note',
+        ];
+
+        foreach ($map as $field => $key) {
+            if (array_key_exists($field, (array) $request->input('platform', []))) {
+                Setting::put($key, (string) $request->input("platform.{$field}"));
+            }
+        }
+
         Setting::put('features.payments.available', $request->boolean('features.payments.available') ? '1' : '0');
         Setting::put('features.shipping.available', $request->boolean('features.shipping.available') ? '1' : '0');
 

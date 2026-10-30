@@ -32,7 +32,7 @@ class ImpersonationController extends Controller
         $request->session()->put([
             'impersonator_id' => $admin->id,
             'impersonation_id' => $session->id,
-            'impersonation_expires' => now()->addMinutes(config('platform.impersonation_ttl_minutes'))->toIso8601String(),
+            'impersonation_expires' => now()->addMinutes(\App\Services\Platform\PlatformSettings::int('platform.impersonation_ttl_minutes', 30))->toIso8601String(),
         ]);
         $request->session()->regenerate();
 

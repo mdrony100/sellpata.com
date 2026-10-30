@@ -21,6 +21,13 @@ class Setting extends Model
         'contact.phone' => '',
         'contact.email' => '',
         'contact.whatsapp' => '',
+        'platform.base_domain' => 'sellpata.com',
+        'platform.impersonation_ttl_minutes' => '30',
+        'platform.invoice.issuer.name' => 'SellPata',
+        'platform.invoice.issuer.address' => '',
+        'platform.invoice.issuer.phone' => '',
+        'platform.invoice.issuer.email' => '',
+        'platform.invoice.vat_note' => '',
     ];
 
     public static function get(string $key, ?string $default = null): ?string

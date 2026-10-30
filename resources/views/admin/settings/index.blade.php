@@ -47,6 +47,27 @@
                 <input id="whatsapp" type="text" name="contact[whatsapp]" value="{{ $values['contact.whatsapp'] }}">
                 <p class="muted" style="font-size:.85rem">যেটি খালি থাকবে সেটি সাইটে দেখানো হবে না।</p>
 
+                <h2 style="margin-top:22px">প্ল্যাটফর্ম</h2>
+                <label for="base_domain">বেস ডোমেইন (সাবডোমেইন এর নিচে বসবে)</label>
+                <input id="base_domain" type="text" name="platform[base_domain]" value="{{ $values['platform.base_domain'] }}" required>
+                <p class="muted" style="font-size:.85rem">উদাহরণ: sellpata.com — গ্রাহকের ঠিকানা হবে username.sellpata.com।</p>
+
+                <label for="ttl">“গ্রাহক হিসেবে দেখুন” সেশনের সময় (মিনিট)</label>
+                <input id="ttl" type="number" min="5" max="240" name="platform[impersonation_ttl_minutes]" value="{{ $values['platform.impersonation_ttl_minutes'] }}" required>
+
+                <h2 style="margin-top:22px">ইনভয়েসে যা ছাপা হবে</h2>
+                <label for="issuer_name">প্রদানকারীর নাম</label>
+                <input id="issuer_name" type="text" name="platform[invoice_issuer_name]" value="{{ $values['platform.invoice.issuer.name'] }}" required>
+                <label for="issuer_address">ঠিকানা</label>
+                <input id="issuer_address" type="text" name="platform[invoice_issuer_address]" value="{{ $values['platform.invoice.issuer.address'] }}">
+                <label for="issuer_phone">ফোন</label>
+                <input id="issuer_phone" type="text" name="platform[invoice_issuer_phone]" value="{{ $values['platform.invoice.issuer.phone'] }}">
+                <label for="issuer_email">ইমেইল</label>
+                <input id="issuer_email" type="email" name="platform[invoice_issuer_email]" value="{{ $values['platform.invoice.issuer.email'] }}">
+                <label for="vat_note">ভ্যাট / কর সংক্রান্ত নোট</label>
+                <input id="vat_note" type="text" name="platform[invoice_vat_note]" value="{{ $values['platform.invoice.vat_note'] }}" placeholder="যেমন: মূল্য সংযোজিত কর প্রযোজ্য নয়">
+                <p class="muted" style="font-size:.85rem">খালি রাখলে ইনভয়েসে ওই লাইনটি ছাপা হবে না।</p>
+
                 <p style="margin-top:20px">
                     <button class="btn" type="submit">সংরক্ষণ করুন</button>
                 </p>
