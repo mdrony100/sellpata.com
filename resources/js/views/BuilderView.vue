@@ -214,6 +214,7 @@ import { useDraft } from '../composables/useDraft';
 import { api, getPath } from '../lib/api';
 
 const route = useRoute();
+const router = useRouter();
 const publicId = route.params.publicId;
 
 const draftApi = useDraft(publicId);
@@ -356,13 +357,33 @@ async function sendOtp() {
     }
 }
 
+/**
+ * Verification is no longer the end of the flow: the claimed draft is handed to
+ * the dashboard, where a store address (the customer's subdomain) is required
+ * before the page can go live.
+ */
+async function finishOnboarding(result) {
+    const draftId = draft.value?.id ?? result?.draft?.id;
+    if (!draftId) return;
+
+    try {
+        const page = await api('/api/pages', { method: 'POST', body: { draft_id: draftId } });
+        await router.push({ path: '/dashboard/pages', query: { created: page.page_id } });
+    } catch (error) {
+        // Keep the work: a page-limit or setup problem lands the customer in the
+        // dashboard with an explanation instead of losing the draft.
+        await router.push({ path: '/dashboard/pages', query: { notice: error.data?.message ?? '' } });
+    }
+}
+
 async function verifyOtp() {
     codeError.value = '';
     verifying.value = true;
 
     try {
-        await api(`/api/drafts/${publicId}/otp/verify`, { method: 'POST', body: { phone: phone.value, code: code.value } });
+        const result = await api(`/api/drafts/${publicId}/otp/verify`, { method: 'POST', body: { phone: phone.value, code: code.value } });
         claimStep.value = 'done';
+        await finishOnboarding(result);
     } catch (e) {
         codeError.value = e.data?.error ?? 'কোডটি সঠিক নয়।';
     } finally {

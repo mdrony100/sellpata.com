@@ -12,6 +12,7 @@ class DatabaseSeeder extends Seeder
             AdminUserSeeder::class,
             ContentSeeder::class,
             BuilderContentSeeder::class,
+            PlanSeeder::class,
         ]);
     }
 }

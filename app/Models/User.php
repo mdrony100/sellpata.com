@@ -6,6 +6,7 @@ namespace App\Models;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
@@ -36,6 +37,11 @@ class User extends Authenticatable
         'password',
         'remember_token',
     ];
+
+    public function store(): HasOne
+    {
+        return $this->hasOne(Store::class);
+    }
 
     /**
      * Get the attributes that should be cast.

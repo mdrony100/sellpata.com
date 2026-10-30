@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import HomeView from './views/HomeView.vue';
 import ClientsView from './views/ClientsView.vue';
 import ContactView from './views/ContactView.vue';
+import DashboardView from './views/DashboardView.vue';
 import NotFoundView from './views/NotFoundView.vue';
 import DiscoveryView from './views/DiscoveryView.vue';
 import BuilderView from './views/BuilderView.vue';
@@ -29,6 +30,12 @@ const routes = [
         name: 'demo',
         component: DemoView,
         meta: { bare: true, title: 'নমুনা ডিজাইন — SellPata', robots: 'noindex, nofollow' },
+    },
+    {
+        path: '/dashboard/:tab?',
+        name: 'dashboard',
+        component: DashboardView,
+        meta: { bare: true, seo: 'dashboard', robots: 'noindex, nofollow' },
     },
     { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFoundView, meta: { seo: 'notFound' } },
 ];
