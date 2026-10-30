@@ -1468,7 +1468,7 @@ a:hover { color: var(--brand-800); }
     padding: 1.05rem 1.1rem 1.15rem;
 }
 .dash-panel--flush { padding: 0; overflow: hidden; }
-.dash-panel h2, .dash-card h3 { font-size: 1.05rem; }
+.dash-panel h2, .dash-card h3, .dash-panel h3 { font-size: 1.05rem; }
 .dash-panel__head {
     display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
     margin-bottom: 0.75rem;
@@ -1728,6 +1728,82 @@ a:hover { color: var(--brand-800); }
 }
 @media (min-width: 960px) {
     .dash-topbar { display: none; }
+}
+
+.dash-hostline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.55rem;
+}
+.dash-hostline code, .dash-dns code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.86rem;
+    background: var(--cream-100);
+    padding: 0.2rem 0.45rem;
+    border-radius: 8px;
+    word-break: break-all;
+}
+.dash-copy {
+    border: 1px solid var(--ink-200);
+    background: var(--white);
+    color: var(--brand-800);
+    border-radius: 10px;
+    padding: 0.35rem 0.7rem;
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.dash-copy:hover { background: var(--brand-50); }
+.dash-copy.is-done { background: var(--success-100); color: var(--success-700); border-color: transparent; }
+.dash-domainbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding-top: 0.35rem;
+}
+.dash-domainbar__main { display: grid; gap: 0.35rem; min-width: 0; }
+.dash-domainbar__actions { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+.dash-steps {
+    margin: 0.35rem 0 0;
+    padding-left: 1.25rem;
+    display: grid;
+    gap: 0.7rem;
+}
+.dash-steps li::marker { color: var(--brand-700); font-weight: 700; }
+.dash-lock { display: grid; gap: 0.45rem; }
+.dash-lock p { margin: 0; }
+.dash-lock .btn { justify-self: start; }
+.dash-example {
+    margin: 0.35rem 0 0;
+    padding: 0.75rem 0.85rem;
+    border-radius: 12px;
+    background: var(--cream-50);
+    border: 1px dashed var(--ink-200);
+}
+.dash-dns { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+.dash-dns th, .dash-dns td {
+    padding: 0.7rem 0.45rem;
+    border-bottom: 1px solid var(--ink-100);
+    text-align: left;
+    vertical-align: middle;
+}
+.dash-dns th { color: var(--ink-500); font-size: 0.78rem; font-weight: 700; }
+.dash-dns tr:last-child td { border-bottom: 0; }
+.dash-dns__label { display: none; }
+@media (max-width: 640px) {
+    .dash-domainbar__actions { width: 100%; }
+    .dash-domainbar__actions .btn { flex: 1 1 auto; }
+    .dash-dns thead { display: none; }
+    .dash-dns, .dash-dns tbody, .dash-dns tr, .dash-dns td { display: block; width: 100%; }
+    .dash-dns tr { padding: 0.75rem 0; border-bottom: 1px solid var(--ink-100); }
+    .dash-dns tr:last-child { border-bottom: 0; }
+    .dash-dns td { border: 0; padding: 0.15rem 0; }
+    .dash-dns__label { display: block; font-size: 0.75rem; font-weight: 700; color: var(--ink-500); }
 }
 
 /* ---------- Public storefront order form ---------- */

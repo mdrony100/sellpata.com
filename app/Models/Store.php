@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\Platform\PlatformSettings;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -11,10 +12,16 @@ class Store extends Model
     protected $fillable = [
         'user_id', 'username', 'username_lower', 'display_name', 'logo_path', 'contact_phone',
         'contact_email', 'delivery_charge_enabled', 'delivery_charge', 'status', 'suspended_reason',
-        'username_changed_at',
+        'username_changed_at', 'custom_domain', 'custom_domain_status',
+        'custom_domain_verified_at', 'custom_domain_checked_at',
     ];
 
-    protected $casts = ['delivery_charge_enabled' => 'boolean', 'username_changed_at' => 'datetime'];
+    protected $casts = [
+        'delivery_charge_enabled' => 'boolean',
+        'username_changed_at' => 'datetime',
+        'custom_domain_verified_at' => 'datetime',
+        'custom_domain_checked_at' => 'datetime',
+    ];
 
     public function user(): BelongsTo
     {
@@ -60,10 +67,16 @@ class Store extends Model
         return $this->status === 'active';
     }
 
+    public function freeHost(): string
+    {
+        $base = PlatformSettings::get('platform.base_domain', 'sellpata.com');
+
+        return $this->username_lower.'.'.$base;
+    }
+
     public function publicUrl(?Page $page = null): string
     {
-        $base = \App\Services\Platform\PlatformSettings::get('platform.base_domain', 'sellpata.com');
-        $host = $this->username_lower.'.'.$base;
+        $host = $this->freeHost();
 
         return $page && ! $page->is_primary
             ? "https://{$host}/{$page->slug}"

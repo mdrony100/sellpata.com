@@ -21,6 +21,7 @@ const paths = {
     box: '<path d="M4.5 8.5 12 4.5l7.5 4v9L12 21.5l-7.5-4v-9z"/><path d="M12 12.5 19.5 8.5M12 12.5v9M12 12.5 4.5 8.5"/>',
     search: '<circle cx="11" cy="11" r="5.5"/><path d="m15.5 15.5 3.5 3.5"/>',
     store: '<path d="M4.5 10.5 6 5.5h12l1.5 5"/><path d="M5 10.5h14v8.5H5z"/><path d="M10 19v-4.5h4V19"/>',
+    settings: '<circle cx="12" cy="12" r="3"/><path d="M12 3.2v2M12 18.8v2M3.2 12h2M18.8 12h2M5.8 5.8l1.4 1.4M16.8 16.8l1.4 1.4M18.2 5.8l-1.4 1.4M7.2 16.8l-1.4 1.4"/>',
 };
 </script>
 
