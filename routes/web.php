@@ -71,6 +71,11 @@ Route::get('/api/draft-media/{media}', [DraftMediaController::class, 'show'])
     ->middleware('signed')
     ->name('draft.media.show');
 
+Route::prefix('api')->group(function () {
+    Route::post('/auth/send-otp', [\App\Http\Controllers\Auth\PhoneLoginController::class, 'send'])->middleware('throttle:10,1');
+    Route::post('/auth/verify', [\App\Http\Controllers\Auth\PhoneLoginController::class, 'verify'])->middleware('throttle:10,1');
+});
+
 Route::middleware('auth')->group(function () {
     Route::view('/dashboard', 'app')->name('dashboard');
     Route::view('/dashboard/{any}', 'app')->where('any', '.*')->name('dashboard.any');
@@ -108,10 +113,6 @@ Route::prefix('api')->middleware('auth')->group(function () {
     Route::post('/plans/{plan:slug}/request', [BillingController::class, 'request']);
     Route::get('/invoices', [BillingController::class, 'invoices']);
     Route::get('/downloads', [BillingController::class, 'downloads']);
-    Route::post('/auth/send-otp', [\App\Http\Controllers\Auth\PhoneLoginController::class, 'send']);
-    Route::post('/auth/verify', [\App\Http\Controllers\Auth\PhoneLoginController::class, 'verify']);
-    Route::post('/auth/send-otp', [\App\Http\Controllers\Auth\PhoneLoginController::class, 'send']);
-    Route::post('/auth/verify', [\App\Http\Controllers\Auth\PhoneLoginController::class, 'verify']);
     Route::post('/profile/phone/send-otp', [\App\Http\Controllers\Customer\ProfileController::class, 'sendPhoneOtp']);
     Route::post('/profile/phone/verify', [\App\Http\Controllers\Customer\ProfileController::class, 'verifyPhoneOtp']);
     Route::get('/invoices/{invoice}/download', [BillingController::class, 'download']);
