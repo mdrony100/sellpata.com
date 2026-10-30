@@ -88,6 +88,7 @@
         <a href="{{ route('admin.dashboard') }}" class="{{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">ড্যাশবোর্ড</a>
         <div class="group">কনটেন্ট</div>
         <a href="{{ route('admin.templates.index') }}" class="{{ request()->routeIs('admin.templates.*') ? 'active' : '' }}">টেমপ্লেট</a>
+        <a href="{{ route('admin.landing-themes.index') }}" class="{{ request()->routeIs('admin.landing-themes.*') ? 'active' : '' }}">ল্যান্ডিং থিম</a>
         <a href="{{ route('admin.categories.index') }}" class="{{ request()->routeIs('admin.categories.*') ? 'active' : '' }}">ক্যাটাগরি</a>
         <a href="{{ route('admin.benefits.index') }}" class="{{ request()->routeIs('admin.benefits.*') ? 'active' : '' }}">সুবিধা</a>
         <a href="{{ route('admin.steps.index') }}" class="{{ request()->routeIs('admin.steps.*') ? 'active' : '' }}">ধাপ</a>

@@ -7,7 +7,7 @@
             <h1>ডিজাইনটি পাওয়া যায়নি</h1>
             <RouterLink to="/start" class="btn btn--primary">সব ডিজাইন দেখুন</RouterLink>
         </div>
-        <TemplateRender v-else :content="template.content" :design="template.design" />
+        <TemplateRender v-else demo :content="template.content" :design="template.design" />
     </div>
 </template>
 

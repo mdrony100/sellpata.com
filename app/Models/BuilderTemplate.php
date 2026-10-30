@@ -9,13 +9,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class BuilderTemplate extends Model
 {
     protected $fillable = [
-        'category_id', 'name', 'slug', 'design', 'tagline',
-        'content', 'schema', 'thumbnail', 'is_published', 'sort_order',
+        'category_id', 'name', 'slug', 'design', 'theme_version', 'tagline', 'suitable_for',
+        'content', 'schema', 'thumbnail', 'preview', 'is_published', 'sort_order',
     ];
 
     protected $casts = [
         'content' => 'array',
         'schema' => 'array',
+        'suitable_for' => 'array',
         'is_published' => 'boolean',
     ];
 

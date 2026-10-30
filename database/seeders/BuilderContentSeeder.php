@@ -245,5 +245,7 @@ class BuilderContentSeeder extends Seeder
                 'sort_order' => 4,
             ]
         );
+
+        \App\Support\Landing\ThemeCatalog::seed();
     }
 }

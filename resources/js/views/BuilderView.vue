@@ -18,6 +18,7 @@
                     <span v-if="statusLabel" class="builder__status" :class="`builder__status--${status}`">{{ statusLabel }}</span>
                 </div>
                 <div class="builder__bar-actions">
+                    <button v-if="themes.length" type="button" class="btn btn--ghost" @click="themeOpen = true">থিম বদলান</button>
                     <button type="button" class="btn btn--primary btn--lg" @click="publish">প্রকাশ করুন</button>
                 </div>
             </header>
@@ -73,10 +74,19 @@
                         <div v-for="(item, index) in listItems" :key="index" class="editor__list-item">
                             <div v-for="sub in editingField.item" :key="sub.key" class="editor__field">
                                 <label :for="`${editingField.key}-${index}-${sub.key}`">{{ sub.label }}</label>
+                                <input
+                                    v-if="sub.type === 'image'"
+                                    :id="`${editingField.key}-${index}-${sub.key}`"
+                                    type="file"
+                                    accept="image/png,image/jpeg,image/webp"
+                                    @change="uploadImage(`${editingField.key}.${index}.${sub.key}`, $event)"
+                                />
                                 <textarea
+                                    v-else
                                     :id="`${editingField.key}-${index}-${sub.key}`"
                                     :value="item[sub.key] ?? ''"
                                     rows="2"
+                                    maxlength="500"
                                     @input="setListItem(index, sub.key, $event.target.value)"
                                 />
                             </div>
@@ -96,6 +106,22 @@
                         </label>
                     </template>
 
+                    <template v-else-if="editingField.type === 'select'">
+                        <select :value="valueAt(editingField.key)" @change="update(editingField.key, $event.target.value)">
+                            <option v-for="option in editingField.options || []" :key="option.value" :value="option.value">{{ option.label }}</option>
+                        </select>
+                    </template>
+
+                    <template v-else-if="editingField.type === 'section_order'">
+                        <ol class="editor__order">
+                            <li v-for="(key, index) in sectionOrder" :key="key">
+                                <span>{{ sectionLabel(key) }}</span>
+                                <button type="button" class="btn btn--ghost btn--sm" :disabled="index === 0" @click="moveSection(index, -1)">উপরে</button>
+                                <button type="button" class="btn btn--ghost btn--sm" :disabled="index === sectionOrder.length - 1" @click="moveSection(index, 1)">নিচে</button>
+                            </li>
+                        </ol>
+                    </template>
+
                     <template v-else-if="editingField.type === 'image'">
                         <input type="file" accept="image/png,image/jpeg,image/webp" @change="uploadImage(editingField.key, $event)" />
                         <p class="editor__hint">JPG, PNG বা WebP, সর্বোচ্চ ৪ মেগাবাইট।</p>
@@ -111,12 +137,14 @@
                             v-if="editingField.type === 'textarea'"
                             :value="valueAt(editingField.key)"
                             rows="4"
+                            :maxlength="editingField.maxlength || 2000"
                             @input="update(editingField.key, $event.target.value)"
                         />
                         <input
                             v-else
                             :type="editingField.type === 'price' ? 'number' : 'text'"
                             :inputmode="editingField.type === 'price' ? 'decimal' : undefined"
+                            :maxlength="editingField.type === 'price' ? 8 : (editingField.maxlength || 180)"
                             :value="valueAt(editingField.key)"
                             @input="update(editingField.key, editingField.type === 'price' ? formatNumberInput($event.target.value) : $event.target.value)"
                         />
@@ -124,6 +152,22 @@
 
                     <footer>
                         <button type="button" class="btn btn--primary" @click="closeEditor">সংরক্ষণ করুন</button>
+                    </footer>
+                </div>
+            </div>
+
+            <div v-if="themeOpen" class="editor" role="dialog" aria-modal="true" aria-label="থিম বদলান">
+                <div class="editor__panel editor__panel--narrow">
+                    <h2>থিম বদলান</h2>
+                    <p class="editor__lede">লেখা, দাম, ছবি, ভ্যারিয়েন্ট, প্রশ্ন ও ডেলিভারি থাকবে। হিরোর ধরন ও সেকশনের ক্রম নতুন থিমের মতো হবে। যে থিমে নমুনা রিভিউ নেই, সেখানে নমুনা মতামত যাবে না।</p>
+                    <label v-for="item in themes" :key="item.id" class="editor__toggle">
+                        <input v-model="nextThemeId" type="radio" name="next-theme" :value="item.id" />
+                        <span><strong>{{ item.name }}</strong> — {{ item.tagline }}</span>
+                    </label>
+                    <p v-if="themeError" class="editor__error">{{ themeError }}</p>
+                    <footer>
+                        <button type="button" class="btn btn--primary" :disabled="!nextThemeId || switching" @click="confirmTheme">বদল নিশ্চিত করুন</button>
+                        <button type="button" class="btn btn--ghost" @click="themeOpen = false">বাতিল</button>
                     </footer>
                 </div>
             </div>
@@ -215,6 +259,11 @@ const notFound = ref(false);
 const tab = ref('edit');
 const error = ref('');
 const editingField = ref(null);
+const themes = ref([]);
+const themeOpen = ref(false);
+const nextThemeId = ref(null);
+const themeError = ref('');
+const switching = ref(false);
 const fromCategory = route.query.from ?? null;
 
 const phoneOpen = ref(false);
@@ -263,8 +312,46 @@ function formatNumberInput(value) {
 
 function addItem() {
     const field = editingField.value;
+    const max = field.max || 12;
+    if (listItems.value.length >= max) return;
     const blank = Object.fromEntries(field.item.map((sub) => [sub.key, '']));
     draftApi.updateAt(field.key, [...listItems.value, blank]);
+}
+
+const sectionOrder = computed(() => {
+    const current = valueAt('section_order');
+    return Array.isArray(current) ? current : [];
+});
+
+function sectionLabel(key) {
+    return editingField.value?.options?.find((option) => option.value === key)?.label || key;
+}
+
+function moveSection(index, delta) {
+    const items = [...sectionOrder.value];
+    const target = index + delta;
+    if (target < 0 || target >= items.length) return;
+    [items[index], items[target]] = [items[target], items[index]];
+    draftApi.updateAt('section_order', items);
+}
+
+async function confirmTheme() {
+    themeError.value = '';
+    switching.value = true;
+    try {
+        await draftApi.flush();
+        await api(`/api/drafts/${publicId}/switch-theme`, {
+            method: 'POST',
+            body: { template_id: nextThemeId.value, confirm: true },
+        });
+        const data = await draftApi.load();
+        themes.value = data.themes ?? [];
+        themeOpen.value = false;
+    } catch (e) {
+        themeError.value = e.data?.message || 'থিম বদলানো যায়নি।';
+    } finally {
+        switching.value = false;
+    }
 }
 
 function setListItem(index, key, value) {
@@ -444,6 +531,8 @@ onMounted(async () => {
     try {
         const data = await draftApi.load();
         skipOtp.value = data?.skip_otp === true;
+        themes.value = data?.themes ?? [];
+        nextThemeId.value = data?.themes?.[0]?.id ?? null;
     } catch (e) {
         notFound.value = true;
     } finally {

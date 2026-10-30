@@ -107,9 +107,18 @@ schedule. Until a command is added, run a periodic cleanup of
 `anonymous_identities` past `expires_at` together with unclaimed drafts and
 `storage/app/private/drafts/*`.
 
-### Reference designs
+### Product landing themes
 
-`webhatbd.com/demo3` and `webhatbd.com/demo7` returned **403** from this build
-environment (both direct fetch and with a browser user agent), so they could
-not be inspected. The two template designs here are original work based on the
-general product-landing-page structure described in the brief.
+Five storefront themes for a merchant's product, separate from the marketing homepage:
+
+| Theme | Demo |
+| --- | --- |
+| প্রাকৃতিক | `/demo/prakritik` |
+| আভিজাত্য | `/demo/abhijatya` |
+| স্মার্ট | `/demo/smart` |
+| কোমল | `/demo/komol` |
+| সরাসরি | `/demo/sorasari` |
+
+Demo pages are `noindex` and refuse real orders. Content stays in a centered column about 1000px wide. Free-plan checkout is cash on delivery only; an online method appears only when the plan allows it and a payment driver plus key are configured.
+
+The webhatbd reference pages returned readable text in this environment. No layout screenshot was attached with the brief.

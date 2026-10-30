@@ -1,5 +1,15 @@
 <template>
-    <article class="lp" :class="`lp--${design}`" :style="theme">
+    <ProductLanding
+        v-if="isLanding"
+        :content="content"
+        :design="design"
+        :media="media"
+        :editable="editable"
+        :demo="demo"
+        :checkout="checkout"
+        @edit="$emit('edit', $event)"
+    />
+    <article v-else class="lp" :class="`lp--${design}`" :style="theme">
         <header class="lp__bar">
             <div class="lp__brand">
                 <img v-if="logo" :src="logo" alt="" class="lp__logo-img" />
@@ -91,13 +101,19 @@
 <script setup>
 import { computed } from 'vue';
 import EditableField from './EditableField.vue';
+import ProductLanding from '../landing/ProductLanding.vue';
+import { isLandingDesign } from '../../landing/helpers';
 
 const props = defineProps({
     content: { type: Object, required: true },
     design: { type: String, default: 'spotlight' },
     media: { type: Object, default: () => ({}) },
     editable: { type: Boolean, default: false },
+    demo: { type: Boolean, default: false },
+    checkout: { type: Object, default: () => ({}) },
 });
+
+const isLanding = computed(() => isLandingDesign(props.design));
 
 defineEmits(['edit']);
 
