@@ -1,20 +1,24 @@
 <?php
 
+use App\Http\Controllers\Admin\ImpersonationController;
 use App\Http\Controllers\Api\DiscoveryController;
 use App\Http\Controllers\Api\DraftController;
 use App\Http\Controllers\Api\DraftMediaController;
 use App\Http\Controllers\Api\OtpController;
+use App\Http\Controllers\Api\PublicTemplateController;
+use App\Http\Controllers\Auth\PhoneLoginController;
+use App\Http\Controllers\BlogController;
 use App\Http\Controllers\Customer\BillingController;
+use App\Http\Controllers\Customer\CustomDomainController;
 use App\Http\Controllers\Customer\CustomerOrderController;
 use App\Http\Controllers\Customer\DashboardController;
 use App\Http\Controllers\Customer\PageController;
 use App\Http\Controllers\Customer\ProfileController;
 use App\Http\Controllers\Customer\StoreSetupController;
+use App\Http\Controllers\Internal\DomainCheckController;
+use App\Http\Controllers\LegalController;
 use App\Http\Controllers\Storefront\StorefrontController;
-
-use App\Http\Controllers\Api\PublicTemplateController;
 use Illuminate\Support\Facades\Route;
-
 
 /*
 | Public storefronts live on their own subdomains. The host is the tenant key,
@@ -71,18 +75,18 @@ Route::get('/api/draft-media/{media}', [DraftMediaController::class, 'show'])
     ->middleware('signed')
     ->name('draft.media.show');
 
-Route::get('/blog', [\App\Http\Controllers\BlogController::class, 'index'])->name('blog.index');
-Route::get('/blog/{slug}', [\App\Http\Controllers\BlogController::class, 'show'])->name('blog.show');
-Route::get('/privacy-policy', [\App\Http\Controllers\LegalController::class, 'privacy'])->name('legal.privacy');
-Route::get('/terms', [\App\Http\Controllers\LegalController::class, 'terms'])->name('legal.terms');
-Route::get('/sitemap.xml', [\App\Http\Controllers\BlogController::class, 'sitemap'])->name('sitemap');
+Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
+Route::get('/blog/{slug}', [BlogController::class, 'show'])->name('blog.show');
+Route::get('/privacy-policy', [LegalController::class, 'privacy'])->name('legal.privacy');
+Route::get('/terms', [LegalController::class, 'terms'])->name('legal.terms');
+Route::get('/sitemap.xml', [BlogController::class, 'sitemap'])->name('sitemap');
 
 Route::prefix('api')->group(function () {
-    Route::get('/blog', [\App\Http\Controllers\BlogController::class, 'apiIndex']);
-    Route::get('/blog/{slug}', [\App\Http\Controllers\BlogController::class, 'apiShow']);
-    Route::get('/legal/{doc}', [\App\Http\Controllers\LegalController::class, 'doc']);
-    Route::post('/auth/send-otp', [\App\Http\Controllers\Auth\PhoneLoginController::class, 'send'])->middleware('throttle:10,1');
-    Route::post('/auth/verify', [\App\Http\Controllers\Auth\PhoneLoginController::class, 'verify'])->middleware('throttle:10,1');
+    Route::get('/blog', [BlogController::class, 'apiIndex']);
+    Route::get('/blog/{slug}', [BlogController::class, 'apiShow']);
+    Route::get('/legal/{doc}', [LegalController::class, 'doc']);
+    Route::post('/auth/send-otp', [PhoneLoginController::class, 'send'])->middleware('throttle:10,1');
+    Route::post('/auth/verify', [PhoneLoginController::class, 'verify'])->middleware('throttle:10,1');
 });
 
 Route::middleware('auth')->group(function () {
@@ -90,6 +94,15 @@ Route::middleware('auth')->group(function () {
     Route::view('/dashboard/{any}', 'app')->where('any', '.*')->name('dashboard.any');
 });
 
+// Loopback-only ask endpoint for a later on-demand TLS installer.
+Route::get('/internal/domain-check', DomainCheckController::class)->name('internal.domain-check');
+
+// The subdomain route owns POST /checkout on {store}.sellpata.com. This route
+// exists so a verified custom domain can accept the same request: Laravel would
+// otherwise answer 405 before the storefront middleware runs. Unknown hosts 404.
+Route::post('/checkout', function () {
+    abort(404);
+});
 
 /*
 | Customer dashboard API. Every call is scoped to the signed-in owner.
@@ -122,14 +135,19 @@ Route::prefix('api')->middleware('auth')->group(function () {
     Route::post('/plans/{plan:slug}/request', [BillingController::class, 'request']);
     Route::get('/invoices', [BillingController::class, 'invoices']);
     Route::get('/downloads', [BillingController::class, 'downloads']);
-    Route::post('/profile/phone/send-otp', [\App\Http\Controllers\Customer\ProfileController::class, 'sendPhoneOtp']);
-    Route::post('/profile/phone/verify', [\App\Http\Controllers\Customer\ProfileController::class, 'verifyPhoneOtp']);
+    Route::post('/profile/phone/send-otp', [ProfileController::class, 'sendPhoneOtp']);
+    Route::post('/profile/phone/verify', [ProfileController::class, 'verifyPhoneOtp']);
     Route::get('/invoices/{invoice}/download', [BillingController::class, 'download']);
 
-    Route::post('/impersonation/stop', [\App\Http\Controllers\Admin\ImpersonationController::class, 'stop']);
+    Route::post('/impersonation/stop', [ImpersonationController::class, 'stop']);
 
     Route::patch('/profile', [ProfileController::class, 'update']);
     Route::post('/profile/username', [ProfileController::class, 'username']);
+
+    Route::get('/domain', [CustomDomainController::class, 'show']);
+    Route::post('/domain', [CustomDomainController::class, 'store'])->middleware('throttle:20,1');
+    Route::post('/domain/check', [CustomDomainController::class, 'check'])->middleware('throttle:30,1');
+    Route::delete('/domain', [CustomDomainController::class, 'destroy']);
 });
 
 Route::fallback(function () {

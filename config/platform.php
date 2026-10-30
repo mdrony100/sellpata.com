@@ -3,6 +3,9 @@
 return [
     'base_domain' => env('PLATFORM_BASE_DOMAIN', 'sellpata.com'),
 
+    // A-record target shown when a customer connects their own domain.
+    'server_ip' => env('PLATFORM_SERVER_IP', '169.58.90.98'),
+
     'username' => [
         'min' => (int) env('STORE_USERNAME_MIN', 3),
         'max' => (int) env('STORE_USERNAME_MAX', 30),
