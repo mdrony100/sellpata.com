@@ -12,6 +12,31 @@ use Illuminate\Http\Request;
 
 class CustomerController extends Controller
 {
+    public function pageIndex(Request $request)
+    {
+        $search = trim((string) $request->query('q'));
+
+        $users = User::with('store')
+            ->when($search, fn ($q) => $q->where(fn ($w) => $w->where('name', 'like', "%{$search}%")
+                ->orWhere('phone', 'like', "%{$search}%")
+                ->orWhere('email', 'like', "%{$search}%")
+                ->orWhereHas('store', fn ($s) => $s->where('username', 'like', "%{$search}%"))))
+            ->latest()
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('admin.customers.index', compact('users', 'search'));
+    }
+
+    public function pageShow(User $user)
+    {
+        return view('admin.customers.show', [
+            'user' => $user,
+            'store' => $user->store,
+            'plans' => Plan::orderBy('sort_order')->get(),
+        ]);
+    }
+
     public function index(Request $request)
     {
         $query = User::query()->with('store');
@@ -82,7 +107,7 @@ class CustomerController extends Controller
         $store->forceFill(['status' => 'suspended', 'suspended_reason' => $data['reason']])->save();
         AuditLog::record('store.suspended', $store, ['reason' => $data['reason']]);
 
-        return response()->json(['ok' => true]);
+        return $this->done('স্টোর স্থগিত করা হয়েছে।');
     }
 
     public function reactivate(Store $store)
@@ -90,7 +115,7 @@ class CustomerController extends Controller
         $store->forceFill(['status' => 'active', 'suspended_reason' => null])->save();
         AuditLog::record('store.reactivated', $store);
 
-        return response()->json(['ok' => true]);
+        return $this->done('স্টোর আবার চালু হয়েছে।');
     }
 
     /** Plan changes here are manual assignments and always leave an audit trail. */
@@ -122,6 +147,15 @@ class CustomerController extends Controller
 
         AuditLog::record('plan.assigned', $store, ['plan' => $plan->slug, 'note' => $data['note'], 'assigned_by' => $request->user()->id]);
 
-        return response()->json(['ok' => true]);
+        return $this->done('প্ল্যান নির্ধারণ করা হয়েছে এবং অডিটে সংরক্ষণ হয়েছে।');
+    }
+
+    private function done(string $message)
+    {
+        if (request()->expectsJson()) {
+            return response()->json(['ok' => true, 'message' => $message]);
+        }
+
+        return back()->with('status', $message);
     }
 }

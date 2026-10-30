@@ -21,4 +21,14 @@ class Invoice extends Model
     {
         return $this->belongsTo(Store::class);
     }
+
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class);
+    }
+
+    public function subscription(): BelongsTo
+    {
+        return $this->belongsTo(Subscription::class);
+    }
 }

@@ -35,20 +35,22 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         Route::get('settings', [SettingController::class, 'index'])->name('settings.index');
         Route::put('settings', [SettingController::class, 'update'])->name('settings.update');
-    });
 
-        Route::get('customers', [\App\Http\Controllers\Admin\CustomerController::class, 'index'])->name('customers.index');
-        Route::get('customers/{user}', [\App\Http\Controllers\Admin\CustomerController::class, 'show'])->name('customers.show');
+        Route::get('customers', [\App\Http\Controllers\Admin\CustomerController::class, 'pageIndex'])->name('customers.index');
+        Route::get('customers/{user}', [\App\Http\Controllers\Admin\CustomerController::class, 'pageShow'])->name('customers.show');
         Route::post('customers/{store}/suspend', [\App\Http\Controllers\Admin\CustomerController::class, 'suspend'])->name('customers.suspend');
         Route::post('customers/{store}/reactivate', [\App\Http\Controllers\Admin\CustomerController::class, 'reactivate'])->name('customers.reactivate');
         Route::post('customers/{store}/plan', [\App\Http\Controllers\Admin\CustomerController::class, 'assignPlan'])->name('customers.plan');
 
-        Route::get('orders', [\App\Http\Controllers\Admin\PlatformOrderController::class, 'index'])->name('orders.index');
+        Route::get('orders', [\App\Http\Controllers\Admin\PlatformOrderController::class, 'pageIndex'])->name('orders.index');
 
-        Route::get('plans', [\App\Http\Controllers\Admin\PlanController::class, 'index'])->name('plans.index');
+        Route::get('plans', [\App\Http\Controllers\Admin\PlanController::class, 'pageIndex'])->name('plans.index');
         Route::patch('plans/{plan}', [\App\Http\Controllers\Admin\PlanController::class, 'update'])->name('plans.update');
 
         Route::post('impersonate/{user}', [\App\Http\Controllers\Admin\ImpersonationController::class, 'start'])->name('impersonate.start');
         Route::post('impersonate-stop', [\App\Http\Controllers\Admin\ImpersonationController::class, 'stop'])->name('impersonate.stop');
+    
+    });
+
 
 });

@@ -3,7 +3,9 @@
 <head>
     <meta charset="utf-8">
     <style>
-        body { font-family: hindsiliguri, sans-serif; font-size: 11pt; color: #1b2320; }
+        @font-face { font-family: 'HindSiliguri'; src: url('{{ $fontUrl }}') format('truetype'); font-weight: 400; }
+        @page { size: A4; margin: 16mm 14mm; }
+        body { font-family: 'HindSiliguri', sans-serif; font-size: 11pt; color: #1b2320; }
         h1 { font-size: 18pt; margin: 0 0 4px; }
         .muted { color: #5d6763; font-size: 9.5pt; }
         .head { border-bottom: 2px solid #0d3b2e; padding-bottom: 10px; margin-bottom: 14px; }

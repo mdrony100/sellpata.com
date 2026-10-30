@@ -8,6 +8,22 @@ use Illuminate\Http\Request;
 
 class PlatformOrderController extends Controller
 {
+    public function pageIndex(Request $request)
+    {
+        $filters = ['q' => trim((string) $request->query('q')), 'status' => (string) $request->query('status')];
+
+        $orders = Order::with('store')
+            ->when($filters['q'], fn ($q) => $q->where(fn ($w) => $w->where('reference', 'like', "%{$filters['q']}%")
+                ->orWhere('customer_phone', 'like', "%{$filters['q']}%")
+                ->orWhere('customer_name', 'like', "%{$filters['q']}%")))
+            ->when($filters['status'], fn ($q) => $q->where('status', $filters['status']))
+            ->latest()
+            ->paginate(25)
+            ->withQueryString();
+
+        return view('admin.orders.index', compact('orders', 'filters'));
+    }
+
     public function index(Request $request)
     {
         $query = Order::with('store');

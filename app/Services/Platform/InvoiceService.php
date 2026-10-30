@@ -75,35 +75,63 @@ class InvoiceService
         ]);
     }
 
+    /**
+     * mPDF cannot be installed in this environment (Composer is unusable here and
+     * it has no Bengali shaping without it), so invoices are rendered by headless
+     * Chromium: correct Bengali shaping, embedded fonts, real PDF bytes.
+     * If Chromium is absent we fail loudly instead of returning a broken file.
+     */
     public function pdf(Invoice $invoice): string
     {
         $invoice->loadMissing(['store', 'subscription.plan']);
         $order = $invoice->order_id ? Order::with('items')->find($invoice->order_id) : null;
 
-        $mpdf = new Mpdf([
-            'mode' => 'utf-8',
-            'format' => 'A4',
-            'tempDir' => storage_path('app/mpdf'),
-            'fontDir' => [resource_path('fonts')],
-            'fontdata' => [
-                'hindsiliguri' => [
-                    'R' => 'HindSiliguri-Regular.ttf',
-                    'B' => 'HindSiliguri-Bold.ttf',
-                ],
-            ],
-            'default_font' => 'hindsiliguri',
-            'useOTL' => 0xFF,       // complex-script shaping, required for Bengali
-            'useKerning' => true,
-        ]);
-
-        $mpdf->WriteHTML(view('invoices.pdf', [
+        $html = view('invoices.pdf', [
             'invoice' => $invoice,
             'order' => $order,
             'plan' => $invoice->subscription?->plan,
             'vatNote' => config('platform.invoice.vat_note'),
-        ])->render());
+            'fontUrl' => 'file://'.resource_path('fonts/HindSiliguri-Regular.ttf'),
+        ])->render();
 
-        return $mpdf->Output('', \Mpdf\Output\Destination::STRING_RETURN);
+        $binary = $this->chromium();
+        $dir = storage_path('app/invoices');
+        if (! is_dir($dir)) {
+            mkdir($dir, 0775, true);
+        }
+
+        $base = $dir.'/'.$invoice->number.'-'.uniqid();
+        file_put_contents($base.'.html', $html);
+
+        $command = sprintf(
+            '%s --headless --disable-gpu --no-sandbox --no-pdf-header-footer --print-to-pdf=%s %s 2>&1',
+            escapeshellarg($binary),
+            escapeshellarg($base.'.pdf'),
+            escapeshellarg('file://'.$base.'.html')
+        );
+        exec($command, $output, $code);
+
+        if ($code !== 0 || ! is_file($base.'.pdf') || filesize($base.'.pdf') < 1000) {
+            @unlink($base.'.html');
+            throw new \RuntimeException('ইনভয়েস PDF তৈরি করা যায়নি (PDF রেন্ডারার পাওয়া যায়নি)।');
+        }
+
+        $bytes = file_get_contents($base.'.pdf');
+        @unlink($base.'.html');
+        @unlink($base.'.pdf');
+
+        return $bytes;
+    }
+
+    private function chromium(): string
+    {
+        foreach (['/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/google-chrome'] as $path) {
+            if (is_executable($path)) {
+                return $path;
+            }
+        }
+
+        throw new \RuntimeException('PDF রেন্ডারার (Chromium) সার্ভারে নেই—ইনভয়েস তৈরি করা যাবে না।');
     }
 
     private function nextNumber(string $prefix, int $storeId): string
