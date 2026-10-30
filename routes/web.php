@@ -38,6 +38,7 @@ Route::view('/clients', 'app')->name('clients');
 Route::view('/contact', 'app')->name('contact');
 
 // Onboarding: discovery and the draft builder run in their own full-screen shell.
+Route::view('/login', 'app');
 Route::view('/start', 'app')->name('start');
 Route::view('/builder/{publicId}', 'app')->name('builder')->whereUuid('publicId');
 
@@ -107,6 +108,10 @@ Route::prefix('api')->middleware('auth')->group(function () {
     Route::post('/plans/{plan:slug}/request', [BillingController::class, 'request']);
     Route::get('/invoices', [BillingController::class, 'invoices']);
     Route::get('/downloads', [BillingController::class, 'downloads']);
+    Route::post('/auth/send-otp', [\App\Http\Controllers\Auth\PhoneLoginController::class, 'send']);
+    Route::post('/auth/verify', [\App\Http\Controllers\Auth\PhoneLoginController::class, 'verify']);
+    Route::post('/auth/send-otp', [\App\Http\Controllers\Auth\PhoneLoginController::class, 'send']);
+    Route::post('/auth/verify', [\App\Http\Controllers\Auth\PhoneLoginController::class, 'verify']);
     Route::post('/profile/phone/send-otp', [\App\Http\Controllers\Customer\ProfileController::class, 'sendPhoneOtp']);
     Route::post('/profile/phone/verify', [\App\Http\Controllers\Customer\ProfileController::class, 'verifyPhoneOtp']);
     Route::get('/invoices/{invoice}/download', [BillingController::class, 'download']);
