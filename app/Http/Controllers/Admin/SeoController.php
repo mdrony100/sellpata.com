@@ -41,12 +41,14 @@ class SeoController extends Controller
         ];
 
         foreach ($limits as $key => $max) {
-            $value = $request->input($key);
+            // PHP turns dots in form field names into underscores, so accept both.
+            $value = $request->input(str_replace('.', '_', $key), $request->input($key));
             Setting::updateOrCreate(['key' => $key], ['value' => is_string($value) ? mb_substr(trim($value), 0, $max) : '']);
         }
 
         foreach (['legal.privacy.body', 'legal.terms.body'] as $key) {
-            Setting::updateOrCreate(['key' => $key], ['value' => (string) $request->input($key, '')]);
+            $value = $request->input(str_replace('.', '_', $key), $request->input($key, ''));
+            Setting::updateOrCreate(['key' => $key], ['value' => (string) $value]);
         }
 
         foreach (['privacy', 'terms'] as $doc) {

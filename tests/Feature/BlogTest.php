@@ -72,13 +72,15 @@ class BlogTest extends TestCase
     {
         $admin = User::create([
             'name' => 'Admin', 'email' => 'seo@example.com',
-            'password' => bcrypt('secret'), 'is_admin' => true,
+            'password' => bcrypt('secret'),
         ]);
+        $admin->forceFill(['is_admin' => true])->save();
 
         $this->actingAs($admin)->put('/admin/seo', [
-            'seo.site.title' => 'সেলপাতা — ল্যান্ডিং পেজ',
-            'seo.blog.title' => 'ব্লগ',
-            'seo.robots' => 'index,follow',
+            // PHP delivers dotted field names with underscores, exactly as the form posts them.
+            'seo_site_title' => 'সেলপাতা — ল্যান্ডিং পেজ',
+            'seo_blog_title' => 'ব্লগ',
+            'seo_robots' => 'index,follow',
         ])->assertRedirect();
 
         $this->assertDatabaseHas('settings', [
@@ -92,8 +94,9 @@ class BlogTest extends TestCase
     {
         $admin = User::create([
             'name' => 'Admin', 'email' => 'writer@example.com',
-            'password' => bcrypt('secret'), 'is_admin' => true,
+            'password' => bcrypt('secret'),
         ]);
+        $admin->forceFill(['is_admin' => true])->save();
 
         $this->actingAs($admin)->post('/admin/posts', [
             'title' => 'নতুন লেখা',
