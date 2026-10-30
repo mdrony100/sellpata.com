@@ -45,3 +45,16 @@ function setMeta(attribute, name, content) {
 }
 
 export { SITE_NAME };
+
+
+/** Robots directive per route (builder and demo pages stay out of search). */
+export function applyRobots(route) {
+    const value = route?.meta?.robots ?? 'index, follow';
+    let tag = document.querySelector('meta[name="robots"]');
+    if (!tag) {
+        tag = document.createElement('meta');
+        tag.setAttribute('name', 'robots');
+        document.head.appendChild(tag);
+    }
+    tag.setAttribute('content', value);
+}

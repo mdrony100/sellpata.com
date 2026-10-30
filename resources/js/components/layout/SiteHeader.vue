@@ -10,6 +10,7 @@
                     {{ item.label }}
                 </RouterLink>
             </nav>
+            <RouterLink to="/login" class="site-nav__link" style="margin-left:auto;font-weight:600">কাস্টমার লগইন</RouterLink>
 
             <div class="site-header__actions">
                 <AppButton size="sm" class="site-header__cta" :data-source="'header'" @click="openCta('header')">
@@ -44,6 +45,7 @@
                     >
                         {{ item.label }}
                     </RouterLink>
+                    <RouterLink to="/login" class="site-nav__link" @click="closeMenu">কাস্টমার লগইন</RouterLink>
                 </nav>
                 <AppButton block @click="onMobileCta">{{ primaryCtaLabel }}</AppButton>
             </div>
