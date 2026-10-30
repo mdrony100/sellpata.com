@@ -9,12 +9,19 @@
     <title>@yield('title', 'SellPata — ফেসবুকের ব্যবসার জন্য নিজের ব্র্যান্ডের ল্যান্ডিং পেজ')</title>
     <meta name="description" content="@yield('description', 'ফেসবুক উদ্যোক্তাদের জন্য রেডিমেড ল্যান্ডিং পেজ। পছন্দের ডিজাইন বেছে নিন, নিজের ব্র্যান্ডের রঙে সাজান, কোডিং ছাড়াই শুরু করুন।')">
 
+    <link rel="canonical" href="{{ url()->current() }}">
     <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ url()->current() }}">
     <meta property="og:site_name" content="SellPata">
     <meta property="og:title" content="@yield('og_title', 'SellPata — ফেসবুকের ব্যবসার জন্য নিজের ব্র্যান্ডের ল্যান্ডিং পেজ')">
     <meta property="og:description" content="@yield('og_description', 'ফেসবুক উদ্যোক্তাদের জন্য রেডিমেড ল্যান্ডিং পেজ। পছন্দের ডিজাইন বেছে নিন, নিজের ব্র্যান্ডের রঙে সাজান।')">
     <meta property="og:locale" content="bn_BD">
+    <meta property="og:image" content="{{ asset('og-image.png') }}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="SellPata — নিজের ব্র্যান্ডের ল্যান্ডিং পেজ">
     <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="{{ asset('og-image.png') }}">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
